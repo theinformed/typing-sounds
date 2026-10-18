@@ -1,0 +1,10 @@
+build/
+dist/
+.DS_Store
+Resources/typing-com-keysprite.mp3
+Resources/typingclub-typewriter.mp3
+Resources/IconArtwork/
+Resources/TypingSounds.iconset/
+# Original personal artwork and its unused icon helper.
+Resources/AppIcon-source.png
+Scripts/make_icns.swift
