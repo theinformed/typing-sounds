@@ -12,7 +12,7 @@ mkdir -p "$contents_dir/MacOS" "$contents_dir/Resources"
 rm -rf "$contents_dir/Resources/Sounds"
 mkdir -p "$contents_dir/Resources/Sounds"
 
-architectures=(${=ARCHS:-arm64 x86_64})
+architectures=(${=ARCHS:-arm64})
 objects=()
 for arch in $architectures; do
   object="$project_dir/build/TypingSounds-$arch"

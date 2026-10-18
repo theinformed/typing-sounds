@@ -5,13 +5,13 @@ keyboards, vintage typewriters, music, bubbles and other effects.
 
 ## Install and open
 
-1. Download `Typing-Sounds-1.2.0-universal.zip` from [Releases](https://github.com/theinformed/typing-sounds/releases).
+1. Download `Typing-Sounds-1.2.1-apple-silicon.zip` from [Releases](https://github.com/theinformed/typing-sounds/releases).
 2. Unzip it and drag **Typing Sounds.app** into **Applications**.
 3. Open **Typing Sounds** from Applications or Spotlight (`⌘ Space`).
 4. Allow **Input Monitoring** in System Settings → Privacy & Security. This lets
    the app notice key presses while you work in other apps.
 
-Requires macOS 13 or later. The download contains Apple silicon and Intel code.
+Requires an Apple silicon Mac (M1 or later) and macOS 13 or later.
 This initial release is locally signed, without Apple notarization. macOS may
 block its first launch; after trying to open it, use **Open Anyway** in System
 Settings → Privacy & Security if you trust this download. See
@@ -51,8 +51,8 @@ Then run:
 ./build.sh
 ```
 
-The result is `build/Typing Sounds.app`. Drag it into Applications. The build is
-universal by default; `ARCHS=arm64 ./build.sh` builds only for Apple silicon.
+The result is `build/Typing Sounds.app`. Drag it into Applications. The default
+build is native Apple silicon and does not use Rosetta.
 There are no package dependencies beyond Apple's system frameworks.
 
 Run the resource and silent playback checks on a Mac with an audio output:

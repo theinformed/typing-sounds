@@ -21,7 +21,7 @@ jobs:
         run: ./release.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: Typing-Sounds-universal
+          name: Typing-Sounds-apple-silicon
           path: dist/*
       - name: Publish tagged release
         if: startsWith(github.ref, 'refs/tags/')
