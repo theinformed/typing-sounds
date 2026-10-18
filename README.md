@@ -5,7 +5,7 @@ keyboards, vintage typewriters, music, bubbles and other effects.
 
 ## Install and open
 
-1. Download `Typing-Sounds-1.2.1-apple-silicon.zip` from [Releases](https://github.com/theinformed/typing-sounds/releases).
+1. Download `Typing-Sounds-1.3.0-apple-silicon.zip` from [Releases](https://github.com/theinformed/typing-sounds/releases).
 2. Unzip it and drag **Typing Sounds.app** into **Applications**.
 3. Open **Typing Sounds** from Applications or Spotlight (`⌘ Space`).
 4. Allow **Input Monitoring** in System Settings → Privacy & Security. This lets
@@ -17,15 +17,17 @@ block its first launch; after trying to open it, use **Open Anyway** in System
 Settings → Privacy & Security if you trust this download. See
 [Apple's instructions](https://support.apple.com/en-us/102445).
 
-Opening the app shows its settings window. Closing the window leaves the app in
-the menu bar. Click the **⌘ with sound waves** icon for quick controls, or open
-Typing Sounds again to return to settings. Choose **Quit Typing Sounds** to exit.
+All controls live under the **⌘ with sound waves** icon at the top of your screen.
+Click it to select a sound, drag the volume slider, enable held-key repeats, choose
+which sounds appear, change the icon, or turn on Open at login. There is no Dock
+icon or separate settings window. Opening Typing Sounds from Applications or
+Spotlight starts it in the menu bar; opening it again reveals the controls. Choose **Quit Typing Sounds** from that menu to exit.
 
 ## Controls
 
-- Enable or pause sounds, select a profile, adjust volume, and preview the sound.
+- Click **Typing Sounds: On/Off** to pause or enable sounds; use **Sound** and **Volume** for the profile and level.
 - Choose **Open at login** to start automatically through macOS Login Items.
-- Use **Sound Library** to choose which profiles appear in the quick menu.
+- Use **Sounds Shown in Menu** to choose which profiles appear in the Sound submenu.
 - Choose whether held keys repeat their sounds and select a menu-bar icon.
 
 Fresh installations leave Open at login off. Existing installations migrate their

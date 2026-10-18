@@ -1,10 +1,9 @@
 // main.swift -- native menu-bar typing sounds with an audio engine that sleeps when quiet.
 // Created by LT Sean Egan, PhD 2026-08-19
-// Modified: SDE 2026-10-18 shared audio, native login items and application settings.
+// Modified: SDE 2026-10-18 shared audio, native login items and menu-bar controls.
 import AppKit
 import AVFoundation
 import ServiceManagement
-import Carbon
 import CoreGraphics
 import Darwin
 
@@ -820,323 +819,6 @@ final class LaunchAtLoginManager {
     }
 }
 
-final class SoundLibraryWindowController: NSWindowController {
-    private let preferences = Preferences.shared
-    private let onLibraryChange: () -> Void
-    private let onPreview: (SoundPreset) -> Void
-    private var checkboxes: [SoundPreset: NSButton] = [:]
-
-    init(onLibraryChange: @escaping () -> Void, onPreview: @escaping (SoundPreset) -> Void) {
-        self.onLibraryChange = onLibraryChange
-        self.onPreview = onPreview
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 570, height: 660),
-            styleMask: [.titled, .closable, .resizable],
-            backing: .buffered,
-            defer: false
-        )
-        window.title = "Sound Library Settings"
-        window.minSize = NSSize(width: 500, height: 480)
-        window.isReleasedWhenClosed = false
-        super.init(window: window)
-        buildInterface()
-    }
-
-    required init?(coder: NSCoder) {
-        fatalError("init(coder:) has not been implemented")
-    }
-
-    func show() {
-        refreshCheckboxes()
-        window?.center()
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    private func buildInterface() {
-        guard let contentView = window?.contentView else { return }
-
-        let title = NSTextField(labelWithString: "Choose the sounds shown in your menu")
-        title.font = .systemFont(ofSize: 20, weight: .semibold)
-
-        let subtitle = NSTextField(wrappingLabelWithString: "Every checked sound appears in its group under the menu-bar icon. Preview anything here without changing your current sound.")
-        subtitle.textColor = .secondaryLabelColor
-        subtitle.maximumNumberOfLines = 2
-
-        let headingStack = NSStackView(views: [title, subtitle])
-        headingStack.orientation = .vertical
-        headingStack.alignment = .leading
-        headingStack.spacing = 6
-        headingStack.translatesAutoresizingMaskIntoConstraints = false
-
-        let libraryStack = NSStackView()
-        libraryStack.orientation = .vertical
-        libraryStack.alignment = .leading
-        libraryStack.spacing = 8
-        libraryStack.edgeInsets = NSEdgeInsets(top: 16, left: 20, bottom: 18, right: 20)
-        libraryStack.translatesAutoresizingMaskIntoConstraints = false
-
-        for (category, sectionPresets) in SoundCategory.settingsSections {
-            let presets = sectionPresets.filter { SoundPreset.availableCases.contains($0) }
-            let symbol = NSImage(
-                systemSymbolName: category.symbolName,
-                accessibilityDescription: category.title
-            )?.withSymbolConfiguration(.init(pointSize: 13, weight: .semibold))
-            let categoryIcon = NSImageView(image: symbol ?? NSImage())
-            categoryIcon.contentTintColor = .controlAccentColor
-            let categoryLabel = NSTextField(labelWithString: category.title)
-            categoryLabel.font = .systemFont(ofSize: 14, weight: .semibold)
-            let categoryHeader = NSStackView(views: [categoryIcon, categoryLabel])
-            categoryHeader.orientation = .horizontal
-            categoryHeader.alignment = .centerY
-            categoryHeader.spacing = 7
-            categoryHeader.setHuggingPriority(.required, for: .horizontal)
-            libraryStack.addArrangedSubview(categoryHeader)
-
-            for preset in presets {
-                let checkbox = NSButton(
-                    checkboxWithTitle: preset.title,
-                    target: self,
-                    action: #selector(togglePresetVisibility(_:))
-                )
-                checkbox.identifier = NSUserInterfaceItemIdentifier(preset.rawValue)
-                checkbox.font = .systemFont(ofSize: 13, weight: .medium)
-                checkboxes[preset] = checkbox
-
-                let detail = NSTextField(labelWithString: preset.detail)
-                detail.font = .systemFont(ofSize: 11)
-                detail.textColor = .secondaryLabelColor
-                let textStack = NSStackView(views: [checkbox, detail])
-                textStack.orientation = .vertical
-                textStack.alignment = .leading
-                textStack.spacing = 1
-
-                let spacer = NSView()
-                spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-                let preview = NSButton(
-                    image: NSImage(systemSymbolName: "play.circle", accessibilityDescription: "Preview") ?? NSImage(),
-                    target: self,
-                    action: #selector(previewPreset(_:))
-                )
-                preview.identifier = NSUserInterfaceItemIdentifier(preset.rawValue)
-                preview.bezelStyle = .inline
-                preview.toolTip = "Preview \(preset.title)"
-
-                let row = NSStackView(views: [textStack, spacer, preview])
-                row.orientation = .horizontal
-                row.alignment = .centerY
-                row.spacing = 8
-                row.translatesAutoresizingMaskIntoConstraints = false
-                row.widthAnchor.constraint(equalTo: libraryStack.widthAnchor, constant: -40).isActive = true
-                row.edgeInsets = NSEdgeInsets(top: 2, left: 24, bottom: 4, right: 2)
-                libraryStack.addArrangedSubview(row)
-            }
-
-            let gap = NSView()
-            gap.translatesAutoresizingMaskIntoConstraints = false
-            gap.heightAnchor.constraint(equalToConstant: 6).isActive = true
-            libraryStack.addArrangedSubview(gap)
-        }
-
-        let documentView = NSView()
-        documentView.translatesAutoresizingMaskIntoConstraints = false
-        documentView.addSubview(libraryStack)
-        NSLayoutConstraint.activate([
-            libraryStack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
-            libraryStack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
-            libraryStack.topAnchor.constraint(equalTo: documentView.topAnchor),
-            libraryStack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor)
-        ])
-
-        let scrollView = NSScrollView()
-        scrollView.drawsBackground = false
-        scrollView.hasVerticalScroller = true
-        scrollView.autohidesScrollers = true
-        scrollView.borderType = .bezelBorder
-        scrollView.documentView = documentView
-        scrollView.translatesAutoresizingMaskIntoConstraints = false
-        documentView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor).isActive = true
-
-        let showAll = NSButton(title: "Show All", target: self, action: #selector(showAllPresets))
-        let popularOnly = NSButton(title: "Popular Only", target: self, action: #selector(showPopularPresets))
-        let footerSpacer = NSView()
-        footerSpacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        let done = NSButton(title: "Done", target: self, action: #selector(closeWindow))
-        done.keyEquivalent = "\r"
-        done.bezelStyle = .rounded
-        let footer = NSStackView(views: [showAll, popularOnly, footerSpacer, done])
-        footer.orientation = .horizontal
-        footer.alignment = .centerY
-        footer.spacing = 10
-        footer.translatesAutoresizingMaskIntoConstraints = false
-
-        contentView.addSubview(headingStack)
-        contentView.addSubview(scrollView)
-        contentView.addSubview(footer)
-        NSLayoutConstraint.activate([
-            headingStack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 24),
-            headingStack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -24),
-            headingStack.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 22),
-            scrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            scrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            scrollView.topAnchor.constraint(equalTo: headingStack.bottomAnchor, constant: 16),
-            footer.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            footer.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
-            footer.topAnchor.constraint(equalTo: scrollView.bottomAnchor, constant: 14),
-            footer.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -18)
-        ])
-    }
-
-    private func refreshCheckboxes() {
-        let visible = preferences.visiblePresets.intersection(SoundPreset.availableCases)
-        for (preset, checkbox) in checkboxes {
-            checkbox.state = visible.contains(preset) ? .on : .off
-        }
-    }
-
-    @objc private func togglePresetVisibility(_ sender: NSButton) {
-        guard let rawValue = sender.identifier?.rawValue,
-              let preset = SoundPreset(rawValue: rawValue) else { return }
-        let wantsVisible = sender.state == .on
-        if !wantsVisible && preferences.visiblePresets.count == 1 {
-            NSSound.beep()
-            sender.state = .on
-            return
-        }
-        preferences.setPreset(preset, visible: wantsVisible)
-        onLibraryChange()
-        refreshCheckboxes()
-    }
-
-    @objc private func previewPreset(_ sender: NSButton) {
-        guard let rawValue = sender.identifier?.rawValue,
-              let preset = SoundPreset(rawValue: rawValue) else { return }
-        onPreview(preset)
-    }
-
-    @objc private func showAllPresets() {
-        preferences.hiddenPresets = []
-        onLibraryChange()
-        refreshCheckboxes()
-    }
-
-    @objc private func showPopularPresets() {
-        preferences.hiddenPresets = Set(SoundPreset.allCases).subtracting(Set(SoundCategory.popular.presets))
-        onLibraryChange()
-        refreshCheckboxes()
-    }
-
-    @objc private func closeWindow() {
-        window?.close()
-    }
-}
-
-final class SettingsWindowController: NSWindowController, NSWindowDelegate {
-    private weak var appOwner: AppDelegate?
-    private let enabled = NSButton(checkboxWithTitle: "Enable typing sounds", target: nil, action: nil)
-    private let sound = NSPopUpButton(frame: .zero, pullsDown: false)
-    private let volume = NSSlider(value: 45, minValue: 0, maxValue: 100, target: nil, action: nil)
-    private let volumeLabel = NSTextField(labelWithString: "45%")
-    private let repeats = NSButton(checkboxWithTitle: "Play sounds when a key is held down", target: nil, action: nil)
-    private let login = NSButton(checkboxWithTitle: "Open at login", target: nil, action: nil)
-    private let permission = NSTextField(wrappingLabelWithString: "")
-
-    init(owner: AppDelegate) {
-        self.appOwner = owner
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 570),
-                              styleMask: [.titled, .closable, .miniaturizable],
-                              backing: .buffered, defer: false)
-        window.title = "Typing Sounds"
-        window.isReleasedWhenClosed = false
-        super.init(window: window)
-        window.delegate = self
-
-        let title = NSTextField(labelWithString: "Typing Sounds")
-        title.font = .systemFont(ofSize: 26, weight: .bold)
-        let subtitle = NSTextField(wrappingLabelWithString: "Keyboard sounds, wherever you type.\nUse the ⌘ sound icon in the menu bar for quick controls.")
-        subtitle.textColor = .secondaryLabelColor
-        let soundRow = NSStackView(views: [NSTextField(labelWithString: "Sound"), sound])
-        soundRow.spacing = 14
-        sound.addItems(withTitles: SoundPreset.availableCases.map(\.title))
-        sound.target = self
-        sound.action = #selector(selectSound)
-        volume.target = self
-        volume.action = #selector(adjustVolume)
-        volume.isContinuous = true
-        volume.widthAnchor.constraint(equalToConstant: 280).isActive = true
-        let volumeRow = NSStackView(views: [NSTextField(labelWithString: "Volume"), volume, volumeLabel])
-        volumeRow.spacing = 12
-        enabled.target = owner
-        enabled.action = #selector(AppDelegate.toggleEnabled)
-        repeats.target = self
-        repeats.action = #selector(adjustRepeats)
-        login.target = owner
-        login.action = #selector(AppDelegate.toggleLaunchAtLogin)
-        let preview = NSButton(title: "Preview Sound", target: owner, action: #selector(AppDelegate.testCurrentSound))
-        let library = NSButton(title: "Sound Library…", target: owner, action: #selector(AppDelegate.showSoundLibrary))
-        let buttons = NSStackView(views: [preview, library])
-        buttons.spacing = 12
-        permission.font = .systemFont(ofSize: 12)
-        permission.textColor = .secondaryLabelColor
-        let allow = NSButton(title: "Input Monitoring…", target: owner, action: #selector(AppDelegate.handlePermissionItem))
-        let privacy = NSTextField(wrappingLabelWithString: "No keystroke history, accounts or network access. Audio goes quiet when you stop typing.")
-        privacy.font = .systemFont(ofSize: 11)
-        privacy.textColor = .secondaryLabelColor
-        let stack = NSStackView(views: [title, subtitle, enabled, soundRow, volumeRow,
-                                       buttons, repeats, login, permission, allow, privacy])
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 13
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        window.contentView!.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 28),
-            stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -28),
-            stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 26),
-            stack.bottomAnchor.constraint(lessThanOrEqualTo: window.contentView!.bottomAnchor, constant: -22)
-        ])
-    }
-
-    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-
-    func refresh() {
-        guard isWindowLoaded else { return }
-        let prefs = Preferences.shared
-        enabled.state = prefs.enabled ? .on : .off
-        sound.selectItem(withTitle: prefs.preset.title)
-        volume.doubleValue = prefs.volume * 100
-        volumeLabel.stringValue = "\(Int(prefs.volume * 100))%"
-        repeats.state = prefs.includeRepeats ? .on : .off
-        let manager = LaunchAtLoginManager()
-        login.state = manager.isEnabled || manager.needsApproval ? .on : .off
-        login.title = manager.needsApproval ? "Open at login: approve in System Settings…" : "Open at login"
-        permission.stringValue = CGPreflightListenEventAccess()
-            ? "Input Monitoring is allowed."
-            : "Allow Input Monitoring in System Settings to hear sounds in other apps."
-    }
-
-    func show() {
-        refresh()
-        NSApp.setActivationPolicy(.regular)
-        if window?.isVisible != true { window?.center() }
-        window?.makeKeyAndOrderFront(nil)
-        NSApp.activate(ignoringOtherApps: true)
-    }
-
-    func windowWillClose(_ notification: Notification) {
-        NSApp.setActivationPolicy(.accessory)
-    }
-
-    @objc private func selectSound() {
-        let index = sound.indexOfSelectedItem
-        guard SoundPreset.availableCases.indices.contains(index) else { return }
-        appOwner?.changePreset(SoundPreset.availableCases[index])
-    }
-    @objc private func adjustVolume() { appOwner?.changeVolume(volume.doubleValue / 100) }
-    @objc private func adjustRepeats() { appOwner?.changeRepeats(repeats.state == .on) }
-}
-
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private let preferences = Preferences.shared
     private let launchAtLogin = LaunchAtLoginManager()
@@ -1153,17 +835,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var permissionItem: NSMenuItem!
     private var launchAtLoginItem: NSMenuItem!
     private var volumeItems: [NSMenuItem] = []
+    private var volumeSlider: NSSlider!
+    private var volumeLabel: NSTextField!
+    private var libraryItems: [SoundPreset: NSMenuItem] = [:]
     private var iconItems: [MenuIconStyle: NSMenuItem] = [:]
     private var currentEnabled = true
     private var currentPreset = SoundPreset.classicTypewriter
     private var currentRepeats = false
-    private lazy var settingsWindow = SettingsWindowController(owner: self)
-    private lazy var soundLibraryWindow = SoundLibraryWindowController(
-        onLibraryChange: { [weak self] in self?.soundLibraryDidChange() },
-        onPreview: { [weak self] preset in
-            self?.audio?.play(preset: preset, macKeyCode: 49)
-        }
-    )
     private lazy var typewriterTemplateSource: NSImage? = {
         guard let url = Bundle.main.url(
             forResource: "TypewriterTemplate",
@@ -1181,7 +859,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } catch {
             showAlert(title: "Open at Login", message: error.localizedDescription)
         }
-        let openLibraryOnLaunch = CommandLine.arguments.contains("--open-library")
 
         do {
             audio = try TypingAudioEngine()
@@ -1196,14 +873,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if preferences.enabled { monitor.start(requestPermission: true) }
         updateMenuState()
 
-        let loginLaunch = NSAppleEventManager.shared().currentAppleEvent?
-            .paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue == keyAELaunchedAsLogInItem
-        if openLibraryOnLaunch {
-            soundLibraryWindow.show()
-        } else if !loginLaunch {
-            showSettings()
-        }
-
         if let audioError {
             showAlert(
                 title: "Typing Sounds could not start audio",
@@ -1213,7 +882,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showSettings()
+        showStatusMenu()
         return true
     }
 
@@ -1239,7 +908,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let appMenu = NSMenu(title: "Typing Sounds")
         appMenu.addItem(withTitle: "About Typing Sounds…", action: #selector(showAbout), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        appMenu.addItem(withTitle: "Show Controls…", action: #selector(showStatusMenu), keyEquivalent: ",").target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide Typing Sounds", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
@@ -1262,7 +931,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         enabledItem = menu.addItem(withTitle: "Typing Sounds", action: #selector(toggleEnabled), keyEquivalent: "")
         enabledItem.target = self
-        menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
 
         menu.addItem(.separator())
         soundParentItem = NSMenuItem(title: "Sound", action: nil, keyEquivalent: "")
@@ -1270,6 +938,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         rebuildSoundMenu()
 
         let volumeMenu = NSMenu(title: "Volume")
+        let volumeView = NSView(frame: NSRect(x: 0, y: 0, width: 230, height: 58))
+        volumeLabel = NSTextField(labelWithString: "Volume: 45%")
+        volumeLabel.frame = NSRect(x: 16, y: 33, width: 195, height: 17)
+        volumeSlider = NSSlider(value: preferences.volume * 100, minValue: 0, maxValue: 100,
+                                target: self, action: #selector(adjustMenuVolume(_:)))
+        volumeSlider.frame = NSRect(x: 12, y: 8, width: 206, height: 22)
+        volumeSlider.isContinuous = true
+        volumeSlider.setAccessibilityLabel("Typing sound volume")
+        volumeView.addSubview(volumeLabel)
+        volumeView.addSubview(volumeSlider)
+        let sliderItem = NSMenuItem()
+        sliderItem.view = volumeView
+        volumeMenu.addItem(sliderItem)
+        volumeMenu.addItem(.separator())
         for level in [0.25, 0.45, 0.65, 0.85, 1.0] {
             let percent = Int(level * 100)
             let item = NSMenuItem(title: "\(percent)%", action: #selector(selectVolume(_:)), keyEquivalent: "")
@@ -1285,8 +967,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let testSoundItem = menu.addItem(withTitle: "Test Current Sound", action: #selector(testCurrentSound), keyEquivalent: "")
         testSoundItem.target = self
 
-        let libraryItem = menu.addItem(withTitle: "Sound Library Settings…", action: #selector(showSoundLibrary), keyEquivalent: "")
-        libraryItem.target = self
+        let libraryParent = NSMenuItem(title: "Sounds Shown in Menu", action: nil, keyEquivalent: "")
+        let libraryMenu = NSMenu(title: "Sounds Shown in Menu")
+        for (category, presets) in SoundCategory.settingsSections {
+            let categoryItem = NSMenuItem(title: category.title, action: nil, keyEquivalent: "")
+            let categoryMenu = NSMenu(title: category.title)
+            for preset in presets where SoundPreset.availableCases.contains(preset) {
+                let item = NSMenuItem(title: preset.title, action: #selector(toggleLibraryProfile(_:)), keyEquivalent: "")
+                item.target = self
+                item.representedObject = preset.rawValue
+                categoryMenu.addItem(item)
+                libraryItems[preset] = item
+            }
+            if !categoryMenu.items.isEmpty {
+                categoryItem.submenu = categoryMenu
+                libraryMenu.addItem(categoryItem)
+            }
+        }
+        libraryMenu.addItem(.separator())
+        libraryMenu.addItem(withTitle: "Show All Sounds", action: #selector(showAllPresets), keyEquivalent: "").target = self
+        libraryMenu.addItem(withTitle: "Popular Sounds Only", action: #selector(showPopularPresets), keyEquivalent: "").target = self
+        libraryParent.submenu = libraryMenu
+        menu.addItem(libraryParent)
 
         repeatItem = menu.addItem(withTitle: "Sound on held-key repeats", action: #selector(toggleRepeats), keyEquivalent: "")
         repeatItem.target = self
@@ -1344,10 +1046,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             soundMenu.addItem(categoryItem)
         }
 
-        soundMenu.addItem(.separator())
-        let customize = NSMenuItem(title: "Customize Sound Library…", action: #selector(showSoundLibrary), keyEquivalent: "")
-        customize.target = self
-        soundMenu.addItem(customize)
         soundParentItem.submenu = soundMenu
         soundParentItem.title = "Sound: \(preferences.preset.title)"
     }
@@ -1483,8 +1181,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         currentEnabled = preferences.enabled
         currentPreset = preferences.preset
         currentRepeats = preferences.includeRepeats
-        settingsWindow.refresh()
         enabledItem?.state = preferences.enabled ? .on : .off
+        enabledItem?.title = preferences.enabled ? "Typing Sounds: On" : "Typing Sounds: Off"
+        volumeSlider?.doubleValue = preferences.volume * 100
+        volumeLabel?.stringValue = "Volume: \(Int(preferences.volume * 100))%"
+        libraryItems.forEach { preset, item in
+            item.state = preferences.visiblePresets.contains(preset) ? .on : .off
+        }
         presetItems.forEach { preset, items in
             items.forEach { $0.state = preferences.preset == preset ? .on : .off }
         }
@@ -1521,22 +1224,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         updateMenuState()
     }
 
-    fileprivate func changePreset(_ preset: SoundPreset) {
-        preferences.preset = preset
-        audio?.play(preset: preset, macKeyCode: 49)
-        refreshStatusIcon()
+    @objc private func adjustMenuVolume(_ slider: NSSlider) {
+        preferences.volume = slider.doubleValue / 100
+        audio?.setVolume(preferences.volume)
         updateMenuState()
     }
 
-    fileprivate func changeVolume(_ volume: Double) {
-        preferences.volume = volume
-        audio?.setVolume(volume)
-        updateMenuState()
+    @objc private func toggleLibraryProfile(_ sender: NSMenuItem) {
+        guard let rawValue = sender.representedObject as? String,
+              let preset = SoundPreset(rawValue: rawValue) else { return }
+        let visible = preferences.visiblePresets.contains(preset)
+        guard !visible || preferences.visiblePresets.count > 1 else { return }
+        preferences.setPreset(preset, visible: !visible)
+        soundLibraryDidChange()
     }
 
-    fileprivate func changeRepeats(_ enabled: Bool) {
-        preferences.includeRepeats = enabled
-        updateMenuState()
+    @objc private func showAllPresets() {
+        preferences.hiddenPresets = []
+        soundLibraryDidChange()
+    }
+
+    @objc private func showPopularPresets() {
+        preferences.hiddenPresets = Set(SoundPreset.availableCases).subtracting(SoundCategory.popular.presets)
+        soundLibraryDidChange()
     }
 
     @objc private func selectPreset(_ sender: NSMenuItem) {
@@ -1572,12 +1282,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         audio?.play(preset: preferences.preset, macKeyCode: 49)
     }
 
-    @objc fileprivate func showSettings() {
-        settingsWindow.show()
-    }
-
-    @objc fileprivate func showSoundLibrary() {
-        soundLibraryWindow.show()
+    @objc private func showStatusMenu() {
+        updateMenuState()
+        statusItem?.button?.performClick(nil)
     }
 
     @objc fileprivate func handlePermissionItem() {

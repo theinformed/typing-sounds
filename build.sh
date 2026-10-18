@@ -19,7 +19,7 @@ for arch in $architectures; do
   mkdir -p "$project_dir/build"
   xcrun swiftc -swift-version 5 -O -target "$arch-apple-macos13.0" \
     -framework AppKit -framework CoreGraphics -framework AVFoundation \
-    -framework ServiceManagement -framework Carbon \
+    -framework ServiceManagement \
     "$project_dir/Sources/main.swift" -o "$object"
   objects+=("$object")
 done
