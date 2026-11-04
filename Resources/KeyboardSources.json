@@ -1,0 +1,209 @@
+{
+  "repository": "https://github.com/tplai/kbsim",
+  "commit": "ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4",
+  "license": "MIT",
+  "copyright": "Thomas Lai",
+  "licenseURL": "https://github.com/tplai/kbsim/blob/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/LICENSE.md",
+  "files": [
+    {
+      "path": "Resources/SoundSources/kb-alps-blue-backspace.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/bluealps/press/BACKSPACE.mp3",
+      "sha256": "3b05076b2a4d9b1b6403b8bc1a8081593c07a68d16ea0fbf5f46fd1bb07d7ca9"
+    },
+    {
+      "path": "Resources/SoundSources/kb-alps-blue-key1.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/bluealps/press/GENERIC_R0.mp3",
+      "sha256": "89e002b10aae3a77aac88598e820cf166e9b6dd412a54055d24de49cedcbfb17"
+    },
+    {
+      "path": "Resources/SoundSources/kb-alps-blue-key2.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/bluealps/press/GENERIC_R1.mp3",
+      "sha256": "45664b5e43be09c31f321738735b13a9e3b7c4f2d08e47a41b8ee81c136a39b2"
+    },
+    {
+      "path": "Resources/SoundSources/kb-alps-blue-key3.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/bluealps/press/GENERIC_R2.mp3",
+      "sha256": "0669b6b0fce41ec679ad52c412dc603f2f03c8e8178c979ab694db1dd093daf9"
+    },
+    {
+      "path": "Resources/SoundSources/kb-alps-blue-key4.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/bluealps/press/GENERIC_R3.mp3",
+      "sha256": "c799c08596894a1b6aa7887147576a177a87296ada4928c0b7593682e0a4d448"
+    },
+    {
+      "path": "Resources/SoundSources/kb-alps-blue-key5.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/bluealps/press/GENERIC_R4.mp3",
+      "sha256": "04f02f87d6e9b53a2001832668fb1b985eb9a6573475e8c4608f5a51b4930eb0"
+    },
+    {
+      "path": "Resources/SoundSources/kb-alps-blue-return.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/bluealps/press/ENTER.mp3",
+      "sha256": "b308519bc66c53b09c118ea7325cf4dafd1232f8a66d0d8395d7bf077f4217e6"
+    },
+    {
+      "path": "Resources/SoundSources/kb-alps-blue-space.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/bluealps/press/SPACE.mp3",
+      "sha256": "71ade35f9efda36fd9364e505d842955e49943c1e3bd806d2458ce7eb1b8dfe4"
+    },
+    {
+      "path": "Resources/SoundSources/kb-box-navy-backspace.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/boxnavy/press/BACKSPACE.mp3",
+      "sha256": "55ea605789316cf93a38a8ee91a58d80f87bdc3660669fb0b251f7f8632578c3"
+    },
+    {
+      "path": "Resources/SoundSources/kb-box-navy-key1.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/boxnavy/press/GENERIC_R0.mp3",
+      "sha256": "6b5bc813e28e3a6033d6d1f78708beddfa0316c34a28931a331e0d48f8881384"
+    },
+    {
+      "path": "Resources/SoundSources/kb-box-navy-key2.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/boxnavy/press/GENERIC_R1.mp3",
+      "sha256": "aa06cf30fd1d07ca596b6c121197cb7e1f87e863ba154b871fb55ca14409c00b"
+    },
+    {
+      "path": "Resources/SoundSources/kb-box-navy-key3.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/boxnavy/press/GENERIC_R2.mp3",
+      "sha256": "46f158f5fe4d42d92bb65da292a789cbdfd547512f9a40da52bbf693fe861d8f"
+    },
+    {
+      "path": "Resources/SoundSources/kb-box-navy-key4.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/boxnavy/press/GENERIC_R3.mp3",
+      "sha256": "e04c92c2a828ca3cb41fd8b00b885bb9774fb66e91bee55d1e8826924dadbed6"
+    },
+    {
+      "path": "Resources/SoundSources/kb-box-navy-key5.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/boxnavy/press/GENERIC_R4.mp3",
+      "sha256": "1767006a74c888863e85524e87dd28e212ab6804b9d3e86525c763b272af8214"
+    },
+    {
+      "path": "Resources/SoundSources/kb-box-navy-return.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/boxnavy/press/ENTER.mp3",
+      "sha256": "4af30083ecba8f88b0a4899a245221d91fbc0e83672020b30ebf5be3134916bb"
+    },
+    {
+      "path": "Resources/SoundSources/kb-box-navy-space.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/boxnavy/press/SPACE.mp3",
+      "sha256": "d0fd3687fc20e6f5c41230faab49c357d6424763223a650b5f9ec51a4186314f"
+    },
+    {
+      "path": "Resources/SoundSources/kb-nk-cream-backspace.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/cream/press/BACKSPACE.mp3",
+      "sha256": "cb9512dd65874137874469ae3efaddf37ab2a0b1c66815217cc263a9ba201305"
+    },
+    {
+      "path": "Resources/SoundSources/kb-nk-cream-key1.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/cream/press/GENERIC_R0.mp3",
+      "sha256": "8e3256ddb5a1aed42960a68ba632b3badecce0d60ff3ae61a1ac85e45e343451"
+    },
+    {
+      "path": "Resources/SoundSources/kb-nk-cream-key2.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/cream/press/GENERIC_R1.mp3",
+      "sha256": "a45a8f73ce8698705205c80f531e87360737084746b95cb0e47c980e0f86a0b9"
+    },
+    {
+      "path": "Resources/SoundSources/kb-nk-cream-key3.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/cream/press/GENERIC_R2.mp3",
+      "sha256": "9a54ada9209a4ecabd38616421de1a495df04bee3f0ec7b5247e2d8a507ac70f"
+    },
+    {
+      "path": "Resources/SoundSources/kb-nk-cream-key4.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/cream/press/GENERIC_R3.mp3",
+      "sha256": "b7100272f9a80f7016c10da021e45550f3fcd817c21c172236f6e392881d0c93"
+    },
+    {
+      "path": "Resources/SoundSources/kb-nk-cream-key5.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/cream/press/GENERIC_R4.mp3",
+      "sha256": "5472497fae5cd4ca1a70e7861ba990296a708dbd2402a1fab5e1f0f5e8ab92bf"
+    },
+    {
+      "path": "Resources/SoundSources/kb-nk-cream-return.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/cream/press/ENTER.mp3",
+      "sha256": "78947470c4f3c7577b2df3dacc3d1ec414545b4b7ffe19fd0fe208bf6787aeb1"
+    },
+    {
+      "path": "Resources/SoundSources/kb-nk-cream-space.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/cream/press/SPACE.mp3",
+      "sha256": "72f7101819fbd08cef4e2623e41e4979a7923ed15f94467796f92612eda4db7b"
+    },
+    {
+      "path": "Resources/SoundSources/kb-tealios-backspace.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/turquoise/press/BACKSPACE.mp3",
+      "sha256": "c1c81bc9abf87914467220d556d985c3b740d86ff1e865d1f26bdd29d19e2f87"
+    },
+    {
+      "path": "Resources/SoundSources/kb-tealios-key1.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/turquoise/press/GENERIC_R0.mp3",
+      "sha256": "4f08f0862685d5b3f536daefcfa98c9cccae14df4831274cdc415aa8876df330"
+    },
+    {
+      "path": "Resources/SoundSources/kb-tealios-key2.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/turquoise/press/GENERIC_R1.mp3",
+      "sha256": "5e4d3bdd956760fd6831519549302db42aacf5b7abf162a6271b3032898276b3"
+    },
+    {
+      "path": "Resources/SoundSources/kb-tealios-key3.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/turquoise/press/GENERIC_R2.mp3",
+      "sha256": "06ab4c0ffc7f37ed08a4d1abd5ad583b997a81427d52a0099e3f41cc5b7d6509"
+    },
+    {
+      "path": "Resources/SoundSources/kb-tealios-key4.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/turquoise/press/GENERIC_R3.mp3",
+      "sha256": "b310eaff87450c28415459075c60dd1f817d84d38bf1e5602311edc072f8ba09"
+    },
+    {
+      "path": "Resources/SoundSources/kb-tealios-key5.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/turquoise/press/GENERIC_R4.mp3",
+      "sha256": "a745cc55cc453c74f0f372ccce82dd9d2823ce96ff31d36a4bed13147858ccd4"
+    },
+    {
+      "path": "Resources/SoundSources/kb-tealios-return.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/turquoise/press/ENTER.mp3",
+      "sha256": "de635098bee3f1145491dbd667412a276b320e8183bf28b5626aab2fb50fd985"
+    },
+    {
+      "path": "Resources/SoundSources/kb-tealios-space.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/turquoise/press/SPACE.mp3",
+      "sha256": "cc122ddcfb66fb1af5b2f6e42c1ac8a98d2a21b202ad270435df797ef9e16ef3"
+    },
+    {
+      "path": "Resources/SoundSources/kb-topre-backspace.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/topre/press/BACKSPACE.mp3",
+      "sha256": "00db5edca14dc41ca89ed22ffc063d2bb30d5a5dfb829b014cc1fdfa88891c82"
+    },
+    {
+      "path": "Resources/SoundSources/kb-topre-key1.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/topre/press/GENERIC_R0.mp3",
+      "sha256": "a61130c11937d615179cdda1dc31497ed64138dae1dc931c331be74a82c62451"
+    },
+    {
+      "path": "Resources/SoundSources/kb-topre-key2.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/topre/press/GENERIC_R1.mp3",
+      "sha256": "7848f347aa76b850095ff03f98e04c325de28d6d30ed24b4451bd4bfcd73ecea"
+    },
+    {
+      "path": "Resources/SoundSources/kb-topre-key3.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/topre/press/GENERIC_R2.mp3",
+      "sha256": "3009e146a2f17e9eb98faf34050cf534bed24be2d2295b69a0cff28e5bc43f77"
+    },
+    {
+      "path": "Resources/SoundSources/kb-topre-key4.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/topre/press/GENERIC_R3.mp3",
+      "sha256": "f5b3b49d4f85c228b4be3fd1cf9c11a7aebee005a127b16d3cbd81dba9bb8003"
+    },
+    {
+      "path": "Resources/SoundSources/kb-topre-key5.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/topre/press/GENERIC_R4.mp3",
+      "sha256": "6553b1182524edca8342dcdbc7a92eab9c5791bb9cf516c5494629d672425164"
+    },
+    {
+      "path": "Resources/SoundSources/kb-topre-return.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/topre/press/ENTER.mp3",
+      "sha256": "ebc1ae71ea8097cdde7e6e57732a24761cfaf94ed78a66e3da83d2ab1df0054d"
+    },
+    {
+      "path": "Resources/SoundSources/kb-topre-space.mp3",
+      "url": "https://raw.githubusercontent.com/tplai/kbsim/ba103f3b0afa9dab80447aa2e7e2ed80b6bd80e4/src/assets/audio/topre/press/SPACE.mp3",
+      "sha256": "1fd27ffd614b7f18205df601b0daf339d4dd5217663165a99667625a6c0b0311"
+    }
+  ]
+}

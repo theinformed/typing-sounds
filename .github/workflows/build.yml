@@ -10,7 +10,7 @@ permissions:
   contents: read
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     permissions:
       contents: write
     steps:
@@ -19,6 +19,16 @@ jobs:
         run: brew install ffmpeg
       - name: Build and package
         run: ./release.sh
+      - name: Check sound provenance
+        run: |
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          manifest = json.loads(Path('Resources/KeyboardSources.json').read_text())
+          assert len(manifest['files']) == 40
+          for entry in manifest['files']:
+              assert hashlib.sha256(Path(entry['path']).read_bytes()).hexdigest() == entry['sha256']
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: Typing-Sounds-apple-silicon

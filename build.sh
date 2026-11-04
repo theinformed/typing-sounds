@@ -1,12 +1,20 @@
 #!/bin/zsh
 # build.sh -- build a portable macOS app from the bundled sound sources.
 # Created by LT Sean Egan, PhD 2026-08-19
-# Modified: SDE 2026-10-15 portable paths, universal releases, optional personal assets.
+# Modified: SDE 2026-11-04 recorded switch packs, Apple silicon and distribution signing.
 set -euo pipefail
 
 project_dir=${0:A:h}
 app_dir=${APP_DIR:-"$project_dir/build/Typing Sounds.app"}
 contents_dir="$app_dir/Contents"
+distribution=${DISTRIBUTION:-direct}
+swift_flags=()
+if [[ "$distribution" == app-store ]]; then
+  swift_flags+=(-D APP_STORE)
+elif [[ "$distribution" != direct ]]; then
+  echo 'DISTRIBUTION must be direct or app-store' >&2
+  exit 1
+fi
 
 mkdir -p "$contents_dir/MacOS" "$contents_dir/Resources"
 rm -rf "$contents_dir/Resources/Sounds"
@@ -17,15 +25,22 @@ objects=()
 for arch in $architectures; do
   object="$project_dir/build/TypingSounds-$arch"
   mkdir -p "$project_dir/build"
-  xcrun swiftc -swift-version 5 -O -target "$arch-apple-macos13.0" \
+  xcrun swiftc -swift-version 5 -O $swift_flags -target "$arch-apple-macos13.0" \
     -framework AppKit -framework CoreGraphics -framework AVFoundation \
     -framework ServiceManagement \
-    "$project_dir/Sources/main.swift" -o "$object"
+    "$project_dir/Sources/Models.swift" "$project_dir/Sources/Settings.swift" "$project_dir/Sources/main.swift" -o "$object"
   objects+=("$object")
 done
-lipo -create $objects -output "$contents_dir/MacOS/TypingSounds"
+if (( ${#objects} == 1 )); then
+  cp "$objects[1]" "$contents_dir/MacOS/TypingSounds"
+else
+  lipo -create $objects -output "$contents_dir/MacOS/TypingSounds"
+fi
 
 rsync -a "$project_dir/Info.plist" "$contents_dir/Info.plist"
+if [[ "$distribution" == app-store ]]; then
+  /usr/libexec/PlistBuddy -c 'Delete BuyMeACoffeeURL' "$contents_dir/Info.plist" 2>/dev/null || true
+fi
 if [[ ${INCLUDE_PERSONAL_SOUNDS:-1} == 1 && -f "$project_dir/Resources/typing-com-keysprite.mp3" ]]; then
 segment_starts=(0 0.750 1.584 2.399 3.203 4.012 4.798 5.628 6.435 7.237 8.050 8.893 9.682 10.525 11.257 12.069)
 segment_lengths=(0.250 0.334 0.315 0.305 0.309 0.286 0.329 0.307 0.302 0.313 0.343 0.288 0.343 0.232 0.313 0.382)
@@ -173,12 +188,15 @@ done
 
 # Onset-aligned switch recordings. Each profile keeps distinct letter/number
 # variations plus dedicated space, backspace and return samples.
-for profile in mx-blue holy-panda mx-brown mx-black alpaca gateron-black-ink; do
+for profile in mx-blue holy-panda mx-brown mx-black alpaca gateron-black-ink nk-cream box-navy topre tealios alps-blue; do
   case "$profile" in
     holy-panda) gain=1.35 ;;
     mx-brown) gain=1.25 ;;
     alpaca) gain=3.0 ;;
     gateron-black-ink) gain=1.45 ;;
+    nk-cream) gain=1.4 ;;
+    topre) gain=2.0 ;;
+    tealios) gain=1.4 ;;
     *) gain=1.0 ;;
   esac
   for sample in key1 key2 key3 key4 key5 space backspace return; do
@@ -246,10 +264,19 @@ for index in {1..2}; do
 done
 
 rsync -a "$project_dir/Resources/ThirdPartyNotices.txt" "$contents_dir/Resources/ThirdPartyNotices.txt"
+rsync -a "$project_dir/Resources/KeyboardSources.json" "$contents_dir/Resources/KeyboardSources.json"
+rsync -a "$project_dir/Resources/PrivacyInfo.xcprivacy" "$contents_dir/Resources/PrivacyInfo.xcprivacy"
 swift "$project_dir/Scripts/make_icon.swift" "$contents_dir/Resources/TypingSounds.icns"
 
-codesign --force --deep --sign - \
-  --requirements '=designated => identifier "com.seandegan.typingsounds"' \
-  "$app_dir"
+sign_flags=(--force --sign "${SIGN_IDENTITY:--}")
+if [[ -n ${SIGN_IDENTITY:-} ]]; then
+  sign_flags+=(--options runtime --timestamp)
+else
+  sign_flags+=(--requirements '=designated => identifier "com.seandegan.typingsounds"')
+fi
+if [[ "$distribution" == app-store ]]; then
+  sign_flags+=(--entitlements "$project_dir/Resources/AppStore.entitlements")
+fi
+codesign $sign_flags "$app_dir"
 
 echo "$app_dir"

@@ -1,281 +1,12 @@
 // main.swift -- native menu-bar typing sounds with an audio engine that sleeps when quiet.
 // Created by LT Sean Egan, PhD 2026-08-19
-// Modified: SDE 2026-10-18 shared audio, native login items and menu-bar controls.
+// Modified: SDE 2026-11-04 profiles, optional key routing and event-driven audio recovery.
 import AppKit
 import AVFoundation
 import ServiceManagement
 import CoreGraphics
 import Darwin
 
-enum SoundPreset: String, CaseIterable {
-    case typingCom
-    case typingClub
-    case classicTypewriter
-    case hardClack
-    case sharpStrike
-    case hermesTypewriter
-    case ibmModelM
-    case ibmModelF
-    case mxBlue
-    case holyPanda
-    case mxBrown
-    case mxBlack
-    case alpaca
-    case gateronBlackInk
-    case developerClick
-    case bubblePop
-    case musicBox
-    case chimes
-    case drumKit
-    case casinoChips
-    case retroClicks
-    case electricSpark
-    case duckQuacks
-
-    // The two website recordings are optional personal assets, excluded from releases.
-    static var availableCases: [SoundPreset] {
-        allCases.filter { preset in
-            let name: String
-            switch preset {
-            case .typingCom: name = "typing-com-04"
-            case .typingClub: name = "typingclub-typewriter"
-            default: return true
-            }
-            return Bundle.main.url(forResource: name, withExtension: "wav", subdirectory: "Sounds") != nil
-        }
-    }
-
-    var title: String {
-        switch self {
-        case .typingCom: return "Typing.com"
-        case .typingClub: return "TypingClub"
-        case .classicTypewriter: return "Classic Typewriter"
-        case .hardClack: return "Typewriter: Hard Clack"
-        case .sharpStrike: return "Typewriter: Sharp Strike"
-        case .hermesTypewriter: return "Typewriter: Hermes 305"
-        case .ibmModelM: return "Vintage PC: IBM Model M"
-        case .ibmModelF: return "Vintage Terminal: IBM Model F"
-        case .mxBlue: return "Mechanical: MX Blue"
-        case .holyPanda: return "Mechanical: Holy Panda"
-        case .mxBrown: return "Mechanical: MX Brown"
-        case .mxBlack: return "Mechanical: MX Black"
-        case .alpaca: return "Mechanical: Alpaca"
-        case .gateronBlackInk: return "Mechanical: Gateron Black Ink"
-        case .developerClick: return "Developer Click"
-        case .bubblePop: return "Bubble Pop"
-        case .musicBox: return "Music Box"
-        case .chimes: return "Bright Chimes"
-        case .drumKit: return "Drum Kit"
-        case .casinoChips: return "Casino Chips"
-        case .retroClicks: return "Retro UI Clicks"
-        case .electricSpark: return "Electric Sparks"
-        case .duckQuacks: return "Duck Quacks"
-        }
-    }
-
-    var detail: String {
-        switch self {
-        case .typingCom: return "The crisp, varied Typing.com test sound"
-        case .typingClub: return "TypingClub's compact typewriter tick"
-        case .classicTypewriter: return "Keys, backspace, space and carriage return"
-        case .hardClack: return "A weightier, slower mechanical strike"
-        case .sharpStrike: return "The hardest and fastest typewriter profile"
-        case .hermesTypewriter: return "A bright Hermes Precisa 305 recording"
-        case .ibmModelM: return "Loud 1986 buckling-spring PC keyboard"
-        case .ibmModelF: return "Metallic 1984 terminal buckling springs"
-        case .mxBlue: return "Classic clicky mechanical switches"
-        case .holyPanda: return "Rounded, tactile mechanical thock"
-        case .mxBrown: return "Balanced tactile mechanical switches"
-        case .mxBlack: return "Deep linear mechanical switches"
-        case .alpaca: return "Soft, smooth linear mechanical switches"
-        case .gateronBlackInk: return "Low, substantial linear switch sound"
-        case .developerClick: return "Short code-editor clicks with special keys"
-        case .bubblePop: return "Five light, bouncy pops"
-        case .musicBox: return "A playful eight-note melody"
-        case .chimes: return "Clear, higher musical tones"
-        case .drumKit: return "Kick, hi-hat and snare rhythm"
-        case .casinoChips: return "Bright chips landing and colliding"
-        case .retroClicks: return "Tiny old-school interface blips"
-        case .electricSpark: return "Fast electronic crackles"
-        case .duckQuacks: return "Completely unserious quacking"
-        }
-    }
-}
-
-enum SoundCategory: String, CaseIterable {
-    case popular
-    case keyboards
-    case typewriters
-    case musical
-    case fun
-    case electronic
-
-    var title: String {
-        switch self {
-        case .popular: return "Most Popular"
-        case .keyboards: return "Keyboards"
-        case .typewriters: return "Typewriters"
-        case .musical: return "Musical"
-        case .fun: return "Fun"
-        case .electronic: return "Electronic & Retro"
-        }
-    }
-
-    var symbolName: String {
-        switch self {
-        case .popular: return "star.fill"
-        case .keyboards: return "keyboard.fill"
-        case .typewriters: return "textformat"
-        case .musical: return "music.note.list"
-        case .fun: return "party.popper.fill"
-        case .electronic: return "bolt.fill"
-        }
-    }
-
-    var presets: [SoundPreset] {
-        switch self {
-        case .popular:
-            return [.typingCom, .typingClub, .classicTypewriter, .ibmModelM, .ibmModelF]
-        case .keyboards:
-            return [
-                .typingCom, .typingClub, .ibmModelM, .ibmModelF, .mxBlue,
-                .holyPanda, .mxBrown, .mxBlack, .alpaca, .gateronBlackInk,
-                .developerClick
-            ]
-        case .typewriters:
-            return [.classicTypewriter, .hardClack, .sharpStrike, .hermesTypewriter]
-        case .musical:
-            return [.musicBox, .chimes, .drumKit]
-        case .fun:
-            return [.bubblePop, .casinoChips, .duckQuacks]
-        case .electronic:
-            return [.retroClicks, .electricSpark]
-        }
-    }
-
-    static let settingsSections: [(SoundCategory, [SoundPreset])] = [
-        (.popular, [.typingCom, .typingClub, .classicTypewriter, .ibmModelM, .ibmModelF]),
-        (.keyboards, [.mxBlue, .holyPanda, .mxBrown, .mxBlack, .alpaca, .gateronBlackInk, .developerClick]),
-        (.typewriters, [.hardClack, .sharpStrike, .hermesTypewriter]),
-        (.musical, [.musicBox, .chimes, .drumKit]),
-        (.fun, [.bubblePop, .casinoChips, .duckQuacks]),
-        (.electronic, [.retroClicks, .electricSpark])
-    ]
-}
-
-enum MenuIconStyle: String, CaseIterable {
-    case automatic
-    case commandSound
-    case typewriter
-    case waveform
-    case typingCursor
-    case keyboard
-    case bubbles
-    case music
-    case drum
-
-    var title: String {
-        switch self {
-        case .automatic: return "Automatic by Sound"
-        case .commandSound: return "Command + Sound"
-        case .typewriter: return "Typewriter"
-        case .waveform: return "Waveform"
-        case .typingCursor: return "Typing Cursor"
-        case .keyboard: return "Keyboard"
-        case .bubbles: return "Bubbles"
-        case .music: return "Music Note"
-        case .drum: return "Drum"
-        }
-    }
-
-    var symbolName: String? {
-        switch self {
-        case .automatic, .commandSound, .typewriter: return nil
-        case .waveform: return "waveform"
-        case .typingCursor: return "character.cursor.ibeam"
-        case .keyboard: return "keyboard.fill"
-        case .bubbles: return "circle.grid.2x2.fill"
-        case .music: return "music.note"
-        case .drum: return "drum.fill"
-        }
-    }
-}
-
-final class Preferences {
-    static let shared = Preferences()
-    private let defaults = UserDefaults.standard
-
-    private enum Key {
-        static let enabled = "enabled"
-        static let preset = "preset"
-        static let volume = "volume"
-        static let includeRepeats = "includeRepeats"
-        static let menuIconStyle = "menuIconStyle"
-        static let hiddenPresets = "hiddenPresets"
-    }
-
-    private init() {
-        defaults.register(defaults: [
-            Key.enabled: true,
-            Key.preset: SoundPreset.typingCom.rawValue,
-            Key.volume: 0.45,
-            Key.includeRepeats: false,
-            Key.menuIconStyle: MenuIconStyle.commandSound.rawValue
-        ])
-    }
-
-    var enabled: Bool {
-        get { defaults.bool(forKey: Key.enabled) }
-        set { defaults.set(newValue, forKey: Key.enabled) }
-    }
-
-    var preset: SoundPreset {
-        get {
-            let saved = SoundPreset(rawValue: defaults.string(forKey: Key.preset) ?? "") ?? .classicTypewriter
-            return SoundPreset.availableCases.contains(saved) ? saved : .classicTypewriter
-        }
-        set { defaults.set(newValue.rawValue, forKey: Key.preset) }
-    }
-
-    var volume: Double {
-        get { defaults.double(forKey: Key.volume) }
-        set { defaults.set(newValue, forKey: Key.volume) }
-    }
-
-    var includeRepeats: Bool {
-        get { defaults.bool(forKey: Key.includeRepeats) }
-        set { defaults.set(newValue, forKey: Key.includeRepeats) }
-    }
-
-    var menuIconStyle: MenuIconStyle {
-        get { MenuIconStyle(rawValue: defaults.string(forKey: Key.menuIconStyle) ?? "") ?? .commandSound }
-        set { defaults.set(newValue.rawValue, forKey: Key.menuIconStyle) }
-    }
-
-    var hiddenPresets: Set<SoundPreset> {
-        get {
-            let rawValues = defaults.stringArray(forKey: Key.hiddenPresets) ?? []
-            return Set(rawValues.compactMap(SoundPreset.init(rawValue:)))
-        }
-        set {
-            defaults.set(newValue.map(\.rawValue).sorted(), forKey: Key.hiddenPresets)
-        }
-    }
-
-    var visiblePresets: Set<SoundPreset> {
-        Set(SoundPreset.availableCases).subtracting(hiddenPresets)
-    }
-
-    func setPreset(_ preset: SoundPreset, visible: Bool) {
-        var hidden = hiddenPresets
-        if visible {
-            hidden.remove(preset)
-        } else {
-            hidden.insert(preset)
-        }
-        hiddenPresets = hidden
-    }
-}
 
 enum AudioEngineError: LocalizedError {
     case missingResource(String)
@@ -296,12 +27,13 @@ final class SoundOutput {
     private let engine = AVAudioEngine()
     private let format = AVAudioFormat(standardFormatWithSampleRate: 48_000, channels: 2)!
     private var players: [AVAudioPlayerNode] = []
-    private var availableAt: [Date] = []
+    private var availableAt: [TimeInterval] = []
     private var nextPlayer = 0
-    private var idleTimer: Timer?
-    private var quietAfter = Date.distantPast
+    private var idleTimer: DispatchSourceTimer?
     private var buffers: [URL: AVAudioPCMBuffer] = [:]
     private(set) var lastError: Error?
+    private(set) var generation = 0
+    private var routeObserver: NSObjectProtocol?
 
     var isRunning: Bool { engine.isRunning }
     var voiceCount: Int { players.count }
@@ -315,8 +47,15 @@ final class SoundOutput {
             engine.attach(player)
             engine.connect(player, to: engine.mainMixerNode, format: format)
             players.append(player)
-            availableAt.append(.distantPast)
+            availableAt.append(0)
         }
+        routeObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange, object: engine, queue: .main
+        ) { [weak self] _ in self?.stop() }
+    }
+
+    deinit {
+        if let routeObserver { NotificationCenter.default.removeObserver(routeObserver) }
     }
 
     func buffer(for url: URL) throws -> AVAudioPCMBuffer {
@@ -342,7 +81,7 @@ final class SoundOutput {
             lastError = error
             return
         }
-        let now = Date()
+        let now = ProcessInfo.processInfo.systemUptime
         let index = availableAt.firstIndex(where: { $0 <= now }) ?? nextPlayer
         let player = players[index]
         nextPlayer = (index + 1) % players.count
@@ -354,26 +93,30 @@ final class SoundOutput {
         // Keep the longest ringing sound, then release the audio hardware. Moving
         // one timer avoids a queue of cancelled callbacks during fast typing.
         let duration = Double(buffer.frameLength) / buffer.format.sampleRate
-        availableAt[index] = now.addingTimeInterval(duration)
-        quietAfter = (availableAt.max() ?? now).addingTimeInterval(0.2)
+        availableAt[index] = now + duration
+        let remaining = max(0, (availableAt.max() ?? now) - now + 0.2)
         if let timer = idleTimer {
-            timer.fireDate = quietAfter
+            timer.schedule(deadline: .now() + remaining, leeway: .milliseconds(20))
         } else {
-            let timer = Timer(fire: quietAfter, interval: 0, repeats: false) { [weak self] _ in
-                self?.stop()
+            let timer = DispatchSource.makeTimerSource(queue: .main)
+            let timerGeneration = generation
+            timer.setEventHandler { [weak self] in
+                guard let self, self.generation == timerGeneration else { return }
+                self.stop()
             }
             idleTimer = timer
-            RunLoop.main.add(timer, forMode: .common)
+            timer.schedule(deadline: .now() + remaining, leeway: .milliseconds(20))
+            timer.resume()
         }
     }
 
     func stop() {
-        idleTimer?.invalidate()
+        generation += 1
+        idleTimer?.cancel()
         idleTimer = nil
         players.forEach { $0.stop() }
         engine.stop()
-        availableAt = Array(repeating: .distantPast, count: players.count)
-        quietAfter = .distantPast
+        availableAt = Array(repeating: 0, count: players.count)
     }
 }
 
@@ -539,7 +282,7 @@ final class TypingAudioEngine {
         modelFSpacePool = try bundledPool("model-f-space")
         modelFBackspacePool = try bundledPool("model-f-backspace")
         modelFReturnPool = try bundledPool("model-f-return")
-        keyboardSets = [
+        var sets: [SoundPreset: KeyboardSoundSet] = [
             .mxBlue: try keyboardSet("mx-blue"),
             .holyPanda: try keyboardSet("holy-panda"),
             .mxBrown: try keyboardSet("mx-brown"),
@@ -548,6 +291,13 @@ final class TypingAudioEngine {
             .gateronBlackInk: try keyboardSet("gateron-black-ink"),
             .developerClick: try keyboardSet("developer")
         ]
+        for (preset, slug) in [(SoundPreset.nkCream, "nk-cream"), (.boxNavy, "box-navy"),
+                                (.topre, "topre"), (.tealios, "tealios"), (.alpsBlue, "alps-blue")] {
+            if Bundle.main.url(forResource: "kb-\(slug)-key1", withExtension: "wav", subdirectory: "Sounds") != nil {
+                sets[preset] = try keyboardSet(slug)
+            }
+        }
+        keyboardSets = sets
         bubblePools = try (1...5).map { try bundledPool("bubble-\($0)") }
         musicBoxPools = try (1...8).map { try bundledPool("musicbox-\($0)") }
         chimePools = try (1...3).map { try bundledPool("chime-\($0)") }
@@ -577,9 +327,12 @@ final class TypingAudioEngine {
         case 36, 52, 76:
             typewriterCarriagePool.play(volume: volume * 0.9)
             let generation = playbackGeneration
+            let outputGeneration = SoundOutput.shared.generation
+            let bellVolume = volume * 0.65
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.08) { [weak self] in
-                guard let self, self.playbackGeneration == generation else { return }
-                bellPool.play(volume: self.volume * 0.65)
+                guard let self, self.playbackGeneration == generation,
+                      SoundOutput.shared.generation == outputGeneration else { return }
+                bellPool.play(volume: bellVolume)
             }
             return true
         case 49:
@@ -593,10 +346,8 @@ final class TypingAudioEngine {
         }
     }
 
-    private func isNumberKey(_ keyCode: CGKeyCode) -> Bool {
-        let numberKeys: Set<CGKeyCode> = [18, 19, 20, 21, 22, 23, 25, 26, 28, 29, 65, 67, 69, 75, 76, 78, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92]
-        return numberKeys.contains(keyCode)
-    }
+    private static let numberKeys: Set<CGKeyCode> = [18, 19, 20, 21, 22, 23, 25, 26, 28, 29, 65, 67, 69, 75, 76, 78, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92]
+    private func isNumberKey(_ keyCode: CGKeyCode) -> Bool { Self.numberKeys.contains(keyCode) }
 
     private func playComputerKeyboardSpecial(
         keyCode: CGKeyCode,
@@ -619,7 +370,10 @@ final class TypingAudioEngine {
         }
     }
 
-    func play(preset: SoundPreset, macKeyCode: CGKeyCode) {
+    func play(preset: SoundPreset, macKeyCode: CGKeyCode, volume requestedVolume: Double? = nil) {
+        let previousVolume = volume
+        if let requestedVolume { volume = requestedVolume }
+        defer { volume = previousVolume }
         switch preset {
         case .typingCom:
             let domCode = Self.domCodeByMacKeyCode[macKeyCode] ?? 32
@@ -686,7 +440,7 @@ final class TypingAudioEngine {
                 let pools = isNumberKey(macKeyCode) ? modelFNumberPools : modelFLetterPools
                 pools[Int(macKeyCode) % pools.count].play(volume: volume)
             }
-        case .mxBlue, .holyPanda, .mxBrown, .mxBlack, .alpaca, .gateronBlackInk, .developerClick:
+        case .mxBlue, .holyPanda, .mxBrown, .mxBlack, .alpaca, .gateronBlackInk, .developerClick, .nkCream, .boxNavy, .topre, .tealios, .alpsBlue:
             guard let set = keyboardSets[preset] else { return }
             if !playComputerKeyboardSpecial(
                 keyCode: macKeyCode,
@@ -727,11 +481,12 @@ final class TypingAudioEngine {
 }
 
 final class KeyboardMonitor {
-    typealias Handler = (_ keyCode: CGKeyCode, _ isRepeat: Bool, _ flags: CGEventFlags) -> Void
+    typealias Handler = (_ keyCode: CGKeyCode, _ isRepeat: Bool, _ flags: CGEventFlags, _ kind: KeyboardEventKind) -> Void
 
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
     private let handler: Handler
+    var onReset: () -> Void = {}
 
     init(handler: @escaping Handler) {
         self.handler = handler
@@ -746,20 +501,21 @@ final class KeyboardMonitor {
             _ = CGRequestListenEventAccess()
         }
 
-        let eventMask = CGEventMask(1) << CGEventType.keyDown.rawValue
+        let eventMask = (CGEventMask(1) << CGEventType.keyDown.rawValue) | (CGEventMask(1) << CGEventType.flagsChanged.rawValue)
         let callback: CGEventTapCallBack = { _, type, event, userInfo in
             guard let userInfo else { return Unmanaged.passUnretained(event) }
             let monitor = Unmanaged<KeyboardMonitor>.fromOpaque(userInfo).takeUnretainedValue()
 
             if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                monitor.onReset()
                 if let tap = monitor.eventTap { CGEvent.tapEnable(tap: tap, enable: true) }
                 return Unmanaged.passUnretained(event)
             }
 
-            guard type == .keyDown else { return Unmanaged.passUnretained(event) }
+            guard type == .keyDown || type == .flagsChanged else { return Unmanaged.passUnretained(event) }
             let keyCode = CGKeyCode(event.getIntegerValueField(.keyboardEventKeycode))
             let isRepeat = event.getIntegerValueField(.keyboardEventAutorepeat) != 0
-            monitor.handler(keyCode, isRepeat, event.flags)
+            monitor.handler(keyCode, isRepeat, event.flags, type == .flagsChanged ? .flagsChanged : .keyDown)
             return Unmanaged.passUnretained(event)
         }
 
@@ -803,6 +559,7 @@ final class LaunchAtLoginManager {
     func disable() throws { try SMAppService.mainApp.unregister() }
 
     func migrateLegacyItem() throws {
+        #if !APP_STORE
         let oldPlist = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/LaunchAgents/com.seandegan.typingsounds.plist")
         guard FileManager.default.fileExists(atPath: oldPlist.path) else { return }
@@ -816,6 +573,7 @@ final class LaunchAtLoginManager {
         try process.run()
         process.waitUntilExit()
         try FileManager.default.removeItem(at: oldPlist)
+        #endif
     }
 }
 
@@ -839,9 +597,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var volumeLabel: NSTextField!
     private var libraryItems: [SoundPreset: NSMenuItem] = [:]
     private var iconItems: [MenuIconStyle: NSMenuItem] = [:]
-    private var currentEnabled = true
-    private var currentPreset = SoundPreset.classicTypewriter
-    private var currentRepeats = false
+    private var currentConfiguration = SoundConfiguration()
+    private var keyRouter = KeyEventRouter()
+    private var previewRouter = KeyEventRouter()
+    private var settingsController: SettingsWindowController?
+    private var profileParent: NSMenuItem?
+    private var workspaceObservers: [NSObjectProtocol] = []
+    private var powerObserver: NSObjectProtocol?
+    private var sleeping = false
+    private var inactiveSession = false
+    private var frontAppID = NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? ""
+    private var frontAppName = NSWorkspace.shared.frontmostApplication?.localizedName ?? "this app"
+    private var pauseReason: String? {
+        if !preferences.enabled { return "Paused" }
+        if sleeping || inactiveSession { return "Paused while the Mac is inactive" }
+        if currentConfiguration.muteInLowPowerMode && ProcessInfo.processInfo.isLowPowerModeEnabled {
+            return "Paused in Low Power Mode"
+        }
+        if currentConfiguration.excludedBundleIDs.contains(frontAppID) { return "Paused in " + frontAppName }
+        return nil
+    }
     private lazy var typewriterTemplateSource: NSImage? = {
         guard let url = Bundle.main.url(
             forResource: "TypewriterTemplate",
@@ -866,12 +641,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             audioError = error
         }
 
-        monitor = KeyboardMonitor { [weak self] keyCode, isRepeat, flags in
-            self?.handleKeyDown(keyCode: keyCode, isRepeat: isRepeat, flags: flags)
+        monitor = KeyboardMonitor { [weak self] keyCode, isRepeat, flags, kind in
+            self?.handleKeyDown(keyCode: keyCode, isRepeat: isRepeat, flags: flags, kind: kind)
         }
+        monitor.onReset = { [weak self] in self?.keyRouter.reset() }
 
-        if preferences.enabled { monitor.start(requestPermission: true) }
+        observeEnvironment()
         updateMenuState()
+        if !CGPreflightListenEventAccess() {
+            showSettings()
+            settingsController?.tabView.selectTabViewItem(at: 2)
+        }
 
         if let audioError {
             showAlert(
@@ -882,20 +662,39 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        showStatusMenu()
+        showSettings()
         return true
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         monitor?.stop()
         audio?.stop()
+        workspaceObservers.forEach { NSWorkspace.shared.notificationCenter.removeObserver($0) }
+        if let powerObserver { NotificationCenter.default.removeObserver(powerObserver) }
     }
 
     func applicationDidBecomeActive(_ notification: Notification) {
-        if preferences.enabled, monitor != nil, !monitor.isActive, CGPreflightListenEventAccess() {
-            monitor.start(requestPermission: false)
-        }
         updateMenuState()
+    }
+
+    private func observeEnvironment() {
+        let center = NSWorkspace.shared.notificationCenter
+        func observe(_ name: Notification.Name, _ block: @escaping (Notification) -> Void) {
+            workspaceObservers.append(center.addObserver(forName: name, object: nil, queue: .main, using: block))
+        }
+        observe(NSWorkspace.didActivateApplicationNotification) { [weak self] note in
+            guard let self, let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication else { return }
+            self.frontAppID = app.bundleIdentifier ?? ""
+            self.frontAppName = app.localizedName ?? "this app"
+            self.keyRouter.reset(); self.previewRouter.reset(); self.updateMenuState()
+        }
+        observe(NSWorkspace.willSleepNotification) { [weak self] _ in self?.sleeping = true; self?.updateMenuState() }
+        observe(NSWorkspace.didWakeNotification) { [weak self] _ in self?.sleeping = false; self?.updateMenuState() }
+        observe(NSWorkspace.sessionDidResignActiveNotification) { [weak self] _ in self?.inactiveSession = true; self?.updateMenuState() }
+        observe(NSWorkspace.sessionDidBecomeActiveNotification) { [weak self] _ in self?.inactiveSession = false; self?.updateMenuState() }
+        powerObserver = NotificationCenter.default.addObserver(
+            forName: .NSProcessInfoPowerStateDidChange, object: nil, queue: .main
+        ) { [weak self] _ in self?.updateMenuState() }
     }
 
     func menuWillOpen(_ menu: NSMenu) {
@@ -908,7 +707,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let appMenu = NSMenu(title: "Typing Sounds")
         appMenu.addItem(withTitle: "About Typing Sounds…", action: #selector(showAbout), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
-        appMenu.addItem(withTitle: "Show Controls…", action: #selector(showStatusMenu), keyEquivalent: ",").target = self
+        appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide Typing Sounds", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
@@ -931,6 +730,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         enabledItem = menu.addItem(withTitle: "Typing Sounds", action: #selector(toggleEnabled), keyEquivalent: "")
         enabledItem.target = self
+        menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        let profiles = NSMenuItem(title: "Profiles", action: nil, keyEquivalent: "")
+        profileParent = profiles; menu.addItem(profiles); rebuildProfileMenu()
 
         menu.addItem(.separator())
         soundParentItem = NSMenuItem(title: "Sound", action: nil, keyEquivalent: "")
@@ -1066,7 +868,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard style == .automatic else { return style }
         switch preferences.preset {
         case .typingCom, .ibmModelM, .ibmModelF, .mxBlue, .holyPanda, .mxBrown,
-             .mxBlack, .alpaca, .gateronBlackInk, .developerClick:
+             .mxBlack, .alpaca, .gateronBlackInk, .developerClick, .nkCream, .boxNavy, .topre, .tealios, .alpsBlue:
             return .commandSound
         case .typingClub, .classicTypewriter, .hardClack, .sharpStrike, .hermesTypewriter: return .typewriter
         case .bubblePop, .casinoChips, .duckQuacks: return .bubbles
@@ -1166,27 +968,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem?.button?.image = makeStatusIcon(style: preferences.menuIconStyle, active: active)
     }
 
-    private func handleKeyDown(keyCode: CGKeyCode, isRepeat: Bool, flags: CGEventFlags) {
-        guard currentEnabled,
-              audioError == nil,
-              TypingAudioEngine.soundableKeyCodes.contains(keyCode),
-              currentRepeats || !isRepeat,
-              !flags.contains(.maskCommand),
-              !flags.contains(.maskControl) else { return }
-
-        audio?.play(preset: currentPreset, macKeyCode: keyCode)
+    private func handleKeyDown(keyCode: CGKeyCode, isRepeat: Bool, flags: CGEventFlags,
+                               kind: KeyboardEventKind) {
+        guard settingsController?.isTesting != true, audioError == nil,
+              let sound = keyRouter.route(keyCode: keyCode, kind: kind, flags: flags.rawValue,
+                                          isRepeat: isRepeat, configuration: currentConfiguration) else { return }
+        audio?.play(preset: sound.preset, macKeyCode: sound.keyCode, volume: sound.volume)
     }
 
     fileprivate func updateMenuState() {
-        currentEnabled = preferences.enabled
-        currentPreset = preferences.preset
-        currentRepeats = preferences.includeRepeats
+        let configuration = preferences.configuration
+        if configuration != currentConfiguration {
+            audio?.stop()
+            audio?.setVolume(configuration.volume)
+            keyRouter.reset()
+        }
+        currentConfiguration = configuration
+        if pauseReason == nil {
+            if monitor != nil && !monitor.isActive { monitor.start(requestPermission: false) }
+        } else {
+            monitor?.stop(); audio?.stop(); keyRouter.reset(); previewRouter.reset()
+            currentConfiguration.enabled = false
+        }
+        if settingsController?.window?.isVisible == true { settingsController?.refresh() }
+        rebuildProfileMenu()
         enabledItem?.state = preferences.enabled ? .on : .off
         enabledItem?.title = preferences.enabled ? "Typing Sounds: On" : "Typing Sounds: Off"
         volumeSlider?.doubleValue = preferences.volume * 100
         volumeLabel?.stringValue = "Volume: \(Int(preferences.volume * 100))%"
+        let visiblePresets = preferences.visiblePresets
         libraryItems.forEach { preset, item in
-            item.state = preferences.visiblePresets.contains(preset) ? .on : .off
+            item.state = visiblePresets.contains(preset) ? .on : .off
         }
         presetItems.forEach { preset, items in
             items.forEach { $0.state = preferences.preset == preset ? .on : .off }
@@ -1201,8 +1013,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.state = abs(level - preferences.volume) < 0.001 ? .on : .off
         }
 
-        if monitor?.isActive == true {
-            permissionItem?.title = "Input Monitoring: Active"
+        if CGPreflightListenEventAccess() {
+            permissionItem?.title = monitor?.isActive == true ? "Input Monitoring: Active" : "Input Monitoring: Allowed"
         } else {
             permissionItem?.title = "Input Monitoring Required…"
         }
@@ -1210,7 +1022,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         launchAtLoginItem?.state = launchAtLogin.isEnabled ? .on : .off
         launchAtLoginItem?.title = launchAtLogin.needsApproval ? "Launch at Login: Approval Required…" : "Launch at Login"
 
-        statusItem?.button?.appearsDisabled = !preferences.enabled || monitor?.isActive != true
+        statusItem?.button?.appearsDisabled = pauseReason != nil || monitor?.isActive != true
+        statusItem?.button?.toolTip = "Typing Sounds · " + (pauseReason ?? "On")
     }
 
     @objc fileprivate func toggleEnabled() {
@@ -1253,9 +1066,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let rawValue = sender.representedObject as? String,
               let preset = SoundPreset(rawValue: rawValue) else { return }
         preferences.preset = preset
-        audio?.play(preset: preset, macKeyCode: 49)
         refreshStatusIcon()
         updateMenuState()
+        audio?.play(preset: preset, macKeyCode: 49)
     }
 
     @objc private func selectVolume(_ sender: NSMenuItem) {
@@ -1282,9 +1095,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         audio?.play(preset: preferences.preset, macKeyCode: 49)
     }
 
-    @objc private func showStatusMenu() {
-        updateMenuState()
-        statusItem?.button?.performClick(nil)
+    @objc private func showSettings() {
+        if settingsController == nil {
+            settingsController = SettingsWindowController(
+                onChange: { [weak self] in self?.settingsChanged() },
+                onPreview: { [weak self] preset in self?.audio?.play(preset: preset, macKeyCode: 49, volume: self?.preferences.volume) },
+                onPermission: { [weak self] in self?.handlePermissionItem() },
+                onLogin: { [weak self] in self?.toggleLaunchAtLogin() },
+                loginEnabled: { [weak self] in self?.launchAtLogin.isEnabled == true || self?.launchAtLogin.needsApproval == true },
+                statusText: { [weak self] in
+                    if let error = SoundOutput.shared.lastError { return "Audio output: " + error.localizedDescription }
+                    return self?.pauseReason ?? "Sounds enabled · audio sleeps when quiet"
+                },
+                onTestKey: { [weak self] code, repeated, flags, kind in
+                    guard let self else { return }
+                    var config = self.preferences.configuration
+                    config.enabled = true
+                    guard let sound = self.previewRouter.route(keyCode: code, kind: kind, flags: flags,
+                                                               isRepeat: repeated, configuration: config) else { return }
+                    self.audio?.play(preset: sound.preset, macKeyCode: sound.keyCode, volume: sound.volume)
+                }, iconImage: { [weak self] style in self?.makeStatusIcon(style: style) })
+        }
+        previewRouter.reset()
+        settingsController?.show()
+    }
+
+    private func settingsChanged() {
+        rebuildSoundMenu(); refreshStatusIcon(); updateMenuState()
+    }
+
+    private func rebuildProfileMenu() {
+        guard let profileParent else { return }
+        let profiles = NSMenu(title: "Profiles")
+        for profile in preferences.profiles {
+            let item = NSMenuItem(title: profile.name, action: #selector(selectProfile(_:)), keyEquivalent: "")
+            item.target = self; item.representedObject = profile.id
+            item.state = preferences.activeProfileID == profile.id ? .on : .off
+            profiles.addItem(item)
+        }
+        profiles.addItem(.separator())
+        profiles.addItem(withTitle: "Manage Profiles…", action: #selector(showSettings), keyEquivalent: "").target = self
+        profileParent.submenu = profiles
+    }
+
+    @objc private func selectProfile(_ sender: NSMenuItem) {
+        guard let id = sender.representedObject as? String else { return }
+        preferences.applyProfile(id: id); settingsChanged()
     }
 
     @objc fileprivate func handlePermissionItem() {
@@ -1311,11 +1167,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     @objc private func showAbout() {
-        let alert = NSAlert()
-        alert.messageText = "Typing Sounds"
-        alert.informativeText = "A local-only menu-bar app. It observes key-down codes solely to play audio; it does not store typed content or use the network.\n\nIncludes \(SoundPreset.availableCases.count) sound profiles across keyboards, typewriters, music, fun and retro effects. Third-party notices are bundled with the app."
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+        showSettings()
+        settingsController?.tabView.selectTabViewItem(at: 3)
     }
 
     @objc private func quit() {
@@ -1352,6 +1205,67 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 }
 
+if CommandLine.arguments.contains("--settings-self-test") || CommandLine.arguments.contains("--render-settings") {
+    let application = NSApplication.shared
+    application.setActivationPolicy(.accessory)
+    application.finishLaunching()
+    let suite = "TypingSoundsViewTest." + UUID().uuidString
+    let isolated = UserDefaults(suiteName: suite)!
+    let preferences = Preferences(defaults: isolated)
+    var changes = 0
+    let controller = SettingsWindowController(preferences: preferences, onChange: { changes += 1 })
+    func descendants(_ view: NSView) -> [NSView] {
+        [view] + view.subviews.flatMap(descendants)
+    }
+    if CommandLine.arguments.contains("--settings-self-test") {
+        let controls = controller.tabView.tabViewItems.flatMap { descendants($0.view!) }
+        guard controller.tabView.numberOfTabViewItems == 4,
+              let custom = controls.compactMap({ $0 as? NSButton }).first(where: { $0.title == "Customize special-key sounds" }),
+              let volume = controls.compactMap({ $0 as? NSSlider }).first(where: { $0.accessibilityLabel() == "Typing sound volume" }) else {
+            fputs("FAIL: native settings controls are missing\n", stderr); exit(EXIT_FAILURE)
+        }
+        custom.performClick(nil)
+        guard preferences.specialKeysEnabled else { fputs("FAIL: custom key toggle\n", stderr); exit(EXIT_FAILURE) }
+        volume.doubleValue = 23
+        _ = volume.sendAction(volume.action, to: volume.target)
+        guard abs(preferences.volume - 0.23) < 0.001, changes >= 2 else {
+            fputs("FAIL: volume settings did not persist\n", stderr); exit(EXIT_FAILURE)
+        }
+        print("PASS: four native settings panes, special-key toggle, volume and isolated persistence")
+    }
+    if let index = CommandLine.arguments.firstIndex(of: "--render-settings"),
+       CommandLine.arguments.indices.contains(index + 1) {
+        let directory = URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        controller.window?.orderFront(nil)
+        for (appearance, name) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
+            application.appearance = NSAppearance(named: appearance)
+            controller.window?.appearance = application.appearance
+            for tab in 0..<controller.tabView.numberOfTabViewItems {
+                controller.tabView.selectTabViewItem(at: tab)
+                let view = controller.window!.contentView!
+                view.appearance = application.appearance
+                view.layoutSubtreeIfNeeded()
+                for child in descendants(view) { child.needsDisplay = true }
+                controller.window?.display()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+                guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+                    fputs("FAIL: cannot render settings view\n", stderr); exit(EXIT_FAILURE)
+                }
+                view.effectiveAppearance.performAsCurrentDrawingAppearance {
+                    view.cacheDisplay(in: view.bounds, to: bitmap)
+                }
+                guard let png = bitmap.representation(using: .png, properties: [:]) else { exit(EXIT_FAILURE) }
+                try png.write(to: directory.appendingPathComponent("settings-\(tab)-\(name).png"))
+            }
+        }
+        print("Rendered eight settings views without screen capture")
+        controller.window?.orderOut(nil)
+    }
+    isolated.removePersistentDomain(forName: suite)
+    exit(EXIT_SUCCESS)
+}
+
 if CommandLine.arguments.contains("--self-test") {
     let soundDirectory = Bundle.main.resourceURL?.appendingPathComponent("Sounds")
     var requiredNames: [String] = []
@@ -1375,7 +1289,7 @@ if CommandLine.arguments.contains("--self-test") {
     requiredNames += ["model-f-space.wav", "model-f-backspace.wav", "model-f-return.wav"]
     requiredNames += (1...5).map { "bubble-\($0).wav" }
     requiredNames += (1...8).map { "musicbox-\($0).wav" }
-    for profile in ["mx-blue", "holy-panda", "mx-brown", "mx-black", "alpaca", "gateron-black-ink", "developer"] {
+    for profile in ["mx-blue", "holy-panda", "mx-brown", "mx-black", "alpaca", "gateron-black-ink", "developer", "nk-cream", "box-navy", "topre", "tealios", "alps-blue"] {
         requiredNames += (1...5).map { "kb-\(profile)-key\($0).wav" }
         requiredNames += ["kb-\(profile)-space.wav", "kb-\(profile)-backspace.wav", "kb-\(profile)-return.wav"]
     }
@@ -1386,9 +1300,7 @@ if CommandLine.arguments.contains("--self-test") {
     requiredNames += (1...2).map { "quack-\($0).wav" }
     let missing = requiredNames.filter { name in
         guard let url = soundDirectory?.appendingPathComponent(name) else { return true }
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let size = attributes[.size] as? NSNumber else { return true }
-        return size.intValue <= 44
+        return !FileManager.default.fileExists(atPath: url.path)
     }
     if missing.isEmpty {
         for name in requiredNames {
@@ -1421,6 +1333,10 @@ if CommandLine.arguments.contains("--benchmark") {
         CommandLine.arguments.indices.contains(index + 1)
             ? SoundPreset(rawValue: CommandLine.arguments[index + 1]) : nil
     } ?? .classicTypewriter
+    var benchmarkConfiguration = SoundConfiguration()
+    benchmarkConfiguration.preset = preset
+    benchmarkConfiguration.volume = Preferences.shared.volume
+    var benchmarkRouter = KeyEventRouter()
     func cpuSeconds() -> Double {
         var usage = rusage()
         getrusage(RUSAGE_SELF, &usage)
@@ -1434,7 +1350,10 @@ if CommandLine.arguments.contains("--benchmark") {
         var count = 0
         while Date().timeIntervalSince(start) < seconds {
             if typing {
-                audio.play(preset: preset, macKeyCode: keys[count % keys.count])
+                if let sound = benchmarkRouter.route(keyCode: keys[count % keys.count], kind: .keyDown,
+                    flags: 0, isRepeat: false, configuration: benchmarkConfiguration) {
+                    audio.play(preset: sound.preset, macKeyCode: sound.keyCode, volume: sound.volume)
+                }
                 count += 1
             }
             let deadline = typing ? start.addingTimeInterval(Double(count) / 12)
