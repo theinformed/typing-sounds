@@ -263,6 +263,7 @@ for index in {1..2}; do
     "$contents_dir/Resources/Sounds/quack-$index.wav"
 done
 
+python3 "$project_dir/Scripts/make_sound_designs.py" "$contents_dir/Resources/Sounds"
 rsync -a "$project_dir/Resources/ThirdPartyNotices.txt" "$contents_dir/Resources/ThirdPartyNotices.txt"
 rsync -a "$project_dir/Resources/KeyboardSources.json" "$contents_dir/Resources/KeyboardSources.json"
 rsync -a "$project_dir/Resources/PrivacyInfo.xcprivacy" "$contents_dir/Resources/PrivacyInfo.xcprivacy"

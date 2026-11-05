@@ -181,6 +181,7 @@ final class TypingAudioEngine {
     private let retroClickPools: [SoundPool]
     private let sparkPools: [SoundPool]
     private let quackPools: [SoundPool]
+    private let designedPools: [SoundPreset: [SoundPool]]
     private var musicBoxIndex = 0
     private var chimeIndex = 0
     private var drumIndex = 0
@@ -308,6 +309,9 @@ final class TypingAudioEngine {
         retroClickPools = try (1...5).map { try bundledPool("retro-click-\($0)") }
         sparkPools = try (1...6).map { try bundledPool("spark-\($0)") }
         quackPools = try (1...2).map { try bundledPool("quack-\($0)") }
+        designedPools = try Dictionary(uniqueKeysWithValues: SoundPreset.designedCases.map { preset in
+            (preset, try preset.designedResources.map(bundledPool))
+        })
     }
 
     var diagnosticSummary: String {
@@ -470,6 +474,18 @@ final class TypingAudioEngine {
             sparkPools[Int(macKeyCode) % sparkPools.count].play(volume: volume * 0.5)
         case .duckQuacks:
             quackPools[Int(macKeyCode) % quackPools.count].play(volume: volume * 0.72)
+        case .mutedTypewriter, .ribbonTypewriter, .electricTypewriter, .deskTypewriter,
+             .feltPiano, .marimba, .pluckedStrings, .glassBells, .waterDrops, .woodBlocks,
+             .rubberBounce, .arcadeBlips, .terminalBeeps, .radarPings, .laserTicks:
+            guard let pools = designedPools[preset] else { return }
+            let index: Int
+            switch macKeyCode {
+            case 36, 52, 76: index = 4
+            case 49: index = 3
+            case 51, 117: index = 2
+            default: index = Int(macKeyCode) % 3
+            }
+            pools[index].play(volume: volume * 0.8)
         }
     }
 
@@ -601,6 +617,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var keyRouter = KeyEventRouter()
     private var previewRouter = KeyEventRouter()
     private var settingsController: SettingsWindowController?
+    private var floatingPicker: FloatingSoundPickerController?
     private var profileParent: NSMenuItem?
     private var workspaceObservers: [NSObjectProtocol] = []
     private var powerObserver: NSObjectProtocol?
@@ -708,6 +725,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         appMenu.addItem(withTitle: "About Typing Sounds…", action: #selector(showAbout), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        appMenu.addItem(withTitle: "Floating Sound Picker…", action: #selector(showFloatingPicker), keyEquivalent: "").target = self
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Hide Typing Sounds", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         appMenu.addItem(.separator())
@@ -731,6 +749,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         enabledItem = menu.addItem(withTitle: "Typing Sounds", action: #selector(toggleEnabled), keyEquivalent: "")
         enabledItem.target = self
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: ",").target = self
+        menu.addItem(withTitle: "Floating Sound Picker…", action: #selector(showFloatingPicker), keyEquivalent: "").target = self
         let profiles = NSMenuItem(title: "Profiles", action: nil, keyEquivalent: "")
         profileParent = profiles; menu.addItem(profiles); rebuildProfileMenu()
 
@@ -796,7 +815,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         repeatItem.target = self
 
         let iconMenu = NSMenu(title: "Menu Bar Icon")
-        for style in MenuIconStyle.allCases {
+        for style in MenuIconStyle.selectableCases {
             let item = NSMenuItem(title: style.title, action: #selector(selectMenuIcon(_:)), keyEquivalent: "")
             item.target = self
             item.representedObject = style.rawValue
@@ -831,12 +850,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard !categoryPresets.isEmpty else { continue }
 
             let categoryMenu = NSMenu(title: category.title)
-            for preset in categoryPresets {
-                let item = NSMenuItem(title: preset.title, action: #selector(selectPreset(_:)), keyEquivalent: "")
-                item.target = self
-                item.representedObject = preset.rawValue
-                categoryMenu.addItem(item)
-                presetItems[preset, default: []].append(item)
+            for section in category.menuSections {
+                let presets = section.presets.filter { visible.contains($0) }
+                guard !presets.isEmpty else { continue }
+                if !section.title.isEmpty {
+                    if !categoryMenu.items.isEmpty { categoryMenu.addItem(.separator()) }
+                    let heading = NSMenuItem(title: section.title, action: nil, keyEquivalent: "")
+                    heading.isEnabled = false
+                    categoryMenu.addItem(heading)
+                }
+                for preset in presets {
+                    let item = NSMenuItem(title: preset.title, action: #selector(selectPreset(_:)), keyEquivalent: "")
+                    item.target = self
+                    item.representedObject = preset.rawValue
+                    categoryMenu.addItem(item)
+                    presetItems[preset, default: []].append(item)
+                }
             }
 
             let categoryItem = NSMenuItem(title: category.title, action: nil, keyEquivalent: "")
@@ -870,11 +899,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .typingCom, .ibmModelM, .ibmModelF, .mxBlue, .holyPanda, .mxBrown,
              .mxBlack, .alpaca, .gateronBlackInk, .developerClick, .nkCream, .boxNavy, .topre, .tealios, .alpsBlue:
             return .commandSound
-        case .typingClub, .classicTypewriter, .hardClack, .sharpStrike, .hermesTypewriter: return .typewriter
-        case .bubblePop, .casinoChips, .duckQuacks: return .bubbles
-        case .musicBox, .chimes: return .music
-        case .drumKit: return .drum
-        case .retroClicks, .electricSpark: return .waveform
+        case .typingClub, .classicTypewriter, .hardClack, .sharpStrike, .hermesTypewriter,
+             .mutedTypewriter, .ribbonTypewriter, .electricTypewriter, .deskTypewriter: return .typewriter
+        case .musicBox, .chimes, .drumKit, .feltPiano, .marimba, .pluckedStrings, .glassBells: return .music
+        case .bubblePop, .casinoChips, .duckQuacks, .retroClicks, .electricSpark,
+             .waterDrops, .woodBlocks, .rubberBounce, .arcadeBlips, .terminalBeeps, .radarPings, .laserTicks: return .waveform
         }
     }
 
@@ -991,6 +1020,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             currentConfiguration.enabled = false
         }
         if settingsController?.window?.isVisible == true { settingsController?.refresh() }
+        if floatingPicker?.window?.isVisible == true { floatingPicker?.refresh() }
         rebuildProfileMenu()
         enabledItem?.state = preferences.enabled ? .on : .off
         enabledItem?.title = preferences.enabled ? "Typing Sounds: On" : "Typing Sounds: Off"
@@ -1114,10 +1144,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                     guard let sound = self.previewRouter.route(keyCode: code, kind: kind, flags: flags,
                                                                isRepeat: repeated, configuration: config) else { return }
                     self.audio?.play(preset: sound.preset, macKeyCode: sound.keyCode, volume: sound.volume)
-                }, iconImage: { [weak self] style in self?.makeStatusIcon(style: style) })
+                }, iconImage: { [weak self] style in self?.makeStatusIcon(style: style) },
+                onShowPicker: { [weak self] in self?.showFloatingPicker() })
         }
         previewRouter.reset()
         settingsController?.show()
+    }
+
+    @objc private func showFloatingPicker() {
+        if floatingPicker == nil {
+            floatingPicker = FloatingSoundPickerController(
+                onChange: { [weak self] in self?.settingsChanged() },
+                onPreview: { [weak self] preset in
+                    self?.audio?.play(preset: preset, macKeyCode: 0, volume: self?.preferences.volume)
+                }, onSettings: { [weak self] in self?.showSettings() })
+        }
+        floatingPicker?.show()
     }
 
     private func settingsChanged() {
@@ -1205,6 +1247,73 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 }
 
+if CommandLine.arguments.contains("--floating-self-test") || CommandLine.arguments.contains("--render-floating") {
+    let application = NSApplication.shared
+    application.setActivationPolicy(.accessory)
+    application.finishLaunching()
+    let suite = "TypingSoundsFloatingTest." + UUID().uuidString
+    let isolated = UserDefaults(suiteName: suite)!
+    let preferences = Preferences(defaults: isolated)
+    var changes = 0
+    var previews: [SoundPreset] = []
+    let controller = FloatingSoundPickerController(preferences: preferences,
+        onChange: { changes += 1 }, onPreview: { previews.append($0) })
+    func descendants(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(descendants) }
+    let view = controller.window!.contentView!
+    if CommandLine.arguments.contains("--floating-self-test") {
+        let controls = descendants(view)
+        let buttons = controls.compactMap { $0 as? NSButton }
+        guard let next = buttons.first(where: { $0.identifier?.rawValue == "nextSound" }),
+              let previous = buttons.first(where: { $0.identifier?.rawValue == "previousSound" }),
+              let preview = buttons.first(where: { $0.identifier?.rawValue == "previewSound" }),
+              let category = controls.compactMap({ $0 as? NSPopUpButton }).first(where: { $0.accessibilityLabel() == "Sound category" }),
+              let sound = controls.compactMap({ $0 as? NSPopUpButton }).first(where: { $0.accessibilityLabel() == "Selected sound" }),
+              let volume = controls.compactMap({ $0 as? NSSlider }).first else { exit(EXIT_FAILURE) }
+        let original = preferences.preset
+        next.performClick(nil); precondition(preferences.preset != original && previews.count == 1)
+        previous.performClick(nil); precondition(preferences.preset == original && previews.count == 2)
+        preview.performClick(nil); precondition(preferences.preset == original && previews.count == 3)
+        category.selectItem(at: 1); _ = category.sendAction(category.action, to: category.target)
+        sound.selectItem(at: sound.numberOfItems - 1); _ = sound.sendAction(sound.action, to: sound.target)
+        next.performClick(nil); precondition(sound.indexOfSelectedItem == 0)
+        previous.performClick(nil); precondition(sound.indexOfSelectedItem == sound.numberOfItems - 1)
+        let automatic = buttons.first { $0.title == "Preview when switching" }!
+        automatic.performClick(nil)
+        let previewCount = previews.count
+        next.performClick(nil); precondition(previews.count == previewCount)
+        volume.doubleValue = 27; _ = volume.sendAction(volume.action, to: volume.target)
+        precondition(abs(preferences.volume - 0.27) < 0.001 && changes > 4)
+        let enabled = buttons.first { $0.title == "Typing sounds enabled" }!
+        enabled.performClick(nil); precondition(!preferences.enabled)
+        preferences.preset = .musicBox; controller.refresh()
+        precondition(category.indexOfSelectedItem == 0 && sound.titleOfSelectedItem == SoundPreset.musicBox.title)
+        precondition(controller.window!.level == .floating && !controller.window!.hidesOnDeactivate)
+        precondition(controller.window!.styleMask.contains(.nonactivatingPanel) && !controller.window!.canBecomeKey)
+        print("PASS: floating picker, category wrap, selection, preview, volume, pause and isolated persistence")
+    }
+    if let index = CommandLine.arguments.firstIndex(of: "--render-floating"), CommandLine.arguments.indices.contains(index + 1) {
+        let directory = URL(fileURLWithPath: CommandLine.arguments[index + 1], isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        controller.show()
+        for (appearance, name) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
+            application.appearance = NSAppearance(named: appearance)
+            controller.window?.appearance = application.appearance
+            view.appearance = application.appearance; view.layoutSubtreeIfNeeded()
+            for child in descendants(view) { child.needsDisplay = true }
+            controller.window?.display()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.1))
+            guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { exit(EXIT_FAILURE) }
+            view.effectiveAppearance.performAsCurrentDrawingAppearance { view.cacheDisplay(in: view.bounds, to: bitmap) }
+            guard let png = bitmap.representation(using: .png, properties: [:]) else { exit(EXIT_FAILURE) }
+            try png.write(to: directory.appendingPathComponent("floating-\(name).png"))
+        }
+        controller.window?.orderOut(nil)
+        print("Rendered floating picker in light and dark appearance without screen capture")
+    }
+    isolated.removePersistentDomain(forName: suite)
+    exit(EXIT_SUCCESS)
+}
+
 if CommandLine.arguments.contains("--settings-self-test") || CommandLine.arguments.contains("--render-settings") {
     let application = NSApplication.shared
     application.setActivationPolicy(.accessory)
@@ -1269,6 +1378,7 @@ if CommandLine.arguments.contains("--settings-self-test") || CommandLine.argumen
 if CommandLine.arguments.contains("--self-test") {
     let soundDirectory = Bundle.main.resourceURL?.appendingPathComponent("Sounds")
     var requiredNames: [String] = []
+    requiredNames += SoundPreset.designedCases.flatMap { $0.designedResources.map { $0 + ".wav" } }
     if SoundPreset.availableCases.contains(.typingCom) {
         requiredNames += (0..<16).map { String(format: "typing-com-%02d.wav", $0) }
     }

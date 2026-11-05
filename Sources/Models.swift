@@ -44,10 +44,18 @@ enum KeyGroup: String, CaseIterable, Codable {
         }
     }
 
-    var isExtra: Bool {
+    var defaultSound: (code: CGKeyCode?, gain: Double) {
         switch self {
-        case .enter, .space, .backspace, .tab, .forwardDelete: return false
-        default: return true
+        case .shift: return (6, 0.55)
+        case .control: return (7, 0.55)
+        case .option: return (8, 0.55)
+        case .command: return (9, 0.55)
+        case .capsLock: return (10, 0.7)
+        case .function: return (11, 0.55)
+        case .arrows: return (12, 0.75)
+        case .escape: return (13, 0.75)
+        case .tab, .forwardDelete: return (nil, 0.8)
+        case .enter, .space, .backspace: return (nil, 1)
         }
     }
 }
@@ -83,6 +91,7 @@ struct SoundConfiguration: Codable, Equatable {
             return clean
         }
         copy.excludedBundleIDs = Array(Set(excludedBundleIDs.filter { !$0.isEmpty })).sorted()
+        if !MenuIconStyle.selectableCases.contains(copy.menuIconStyle) { copy.menuIconStyle = .automatic }
         return copy
     }
 }
@@ -148,20 +157,19 @@ struct KeyEventRouter {
         guard c.enabled, c.volume.isFinite, c.volume > 0,
               !isRepeat || c.includeRepeats else { return nil }
         if kind == .keyDown && !c.includeShortcuts && flags & 0x140000 != 0 { return nil }
-        if group?.isExtra == true && !c.specialKeysEnabled { return nil }
         guard Self.ordinaryCodes.contains(keyCode) || group != nil else { return nil }
 
         var preset = c.preset
-        var routedCode = group?.isExtra == true ? keyCode % 35 : keyCode
+        var routedCode = group?.defaultSound.code ?? keyCode
         var gain = min(1, c.volume)
-        if let group, c.specialKeysEnabled {
-            let mapping = c.keyMappings[group] ?? KeyMapping()
+        if let group {
+            let mapping = c.specialKeysEnabled ? c.keyMappings[group] ?? KeyMapping() : KeyMapping()
             gain *= mapping.volume.isFinite ? min(1, max(0, mapping.volume)) : 1
             switch mapping.sound {
             case .silent: return nil
             case .typing: routedCode = 0
             case .preset(let choice): preset = choice
-            case .default: break
+            case .default: gain *= group.defaultSound.gain
             }
         }
         guard gain > 0 else { return nil }
@@ -199,7 +207,10 @@ final class Preferences {
     }
     var includeRepeats: Bool { get { defaults.bool(forKey: "includeRepeats") } set { defaults.set(newValue, forKey: "includeRepeats") } }
     var menuIconStyle: MenuIconStyle {
-        get { MenuIconStyle(rawValue: defaults.string(forKey: "menuIconStyle") ?? "") ?? .commandSound }
+        get {
+            let style = MenuIconStyle(rawValue: defaults.string(forKey: "menuIconStyle") ?? "") ?? .commandSound
+            return MenuIconStyle.selectableCases.contains(style) ? style : .automatic
+        }
         set { defaults.set(newValue.rawValue, forKey: "menuIconStyle") }
     }
     var specialKeysEnabled: Bool { get { defaults.bool(forKey: "specialKeysEnabled") } set { defaults.set(newValue, forKey: "specialKeysEnabled") } }
@@ -260,9 +271,9 @@ final class Preferences {
     static var builtins: [SavedProfile] {
         let specs: [(String, String, SoundPreset, Double, MenuIconStyle)] = [
             ("asmr", "ASMR", .nkCream, 0.42, .headphones),
-            ("focus", "Focus", .topre, 0.25, .leaf),
+            ("focus", "Focus", .topre, 0.25, .typingCursor),
             ("vintage", "Vintage", .ibmModelM, 0.45, .typewriter),
-            ("playful", "Playful", .bubblePop, 0.35, .bubbles)
+            ("playful", "Playful", .bubblePop, 0.35, .waveform)
         ]
         return specs.map { id, name, preset, volume, icon in
             var c = SoundConfiguration(); c.preset = preset; c.volume = volume; c.menuIconStyle = icon
@@ -317,6 +328,17 @@ enum SoundPreset: String, CaseIterable, Codable {
     case electricSpark
     case duckQuacks
     case nkCream, boxNavy, topre, tealios, alpsBlue
+    case mutedTypewriter, ribbonTypewriter, electricTypewriter, deskTypewriter
+    case feltPiano, marimba, pluckedStrings, glassBells
+    case waterDrops, woodBlocks, rubberBounce
+    case arcadeBlips, terminalBeeps, radarPings, laserTicks
+
+    static let designedCases: [SoundPreset] = [
+        .mutedTypewriter, .ribbonTypewriter, .electricTypewriter, .deskTypewriter,
+        .feltPiano, .marimba, .pluckedStrings, .glassBells, .waterDrops, .woodBlocks,
+        .rubberBounce, .arcadeBlips, .terminalBeeps, .radarPings, .laserTicks
+    ]
+    var designedResources: [String] { (1...5).map { "designed-\(rawValue)-\($0)" } }
 
     // The two website recordings are optional personal assets, excluded from releases.
     static let availableCases: [SoundPreset] = allCases.filter { preset in
@@ -364,6 +386,21 @@ enum SoundPreset: String, CaseIterable, Codable {
         case .topre: return "Mechanical: Topre"
         case .tealios: return "Mechanical: Turquoise Tealios"
         case .alpsBlue: return "Vintage: Blue Alps"
+        case .mutedTypewriter: return "Typewriter: Felt Desk"
+        case .ribbonTypewriter: return "Typewriter: Warm Ribbon"
+        case .electricTypewriter: return "Typewriter: Electric Carriage"
+        case .deskTypewriter: return "Typewriter: Metal Desk"
+        case .feltPiano: return "Felt Piano"
+        case .marimba: return "Wooden Marimba"
+        case .pluckedStrings: return "Plucked Strings"
+        case .glassBells: return "Glass Bells"
+        case .waterDrops: return "Water Drops"
+        case .woodBlocks: return "Wood Blocks"
+        case .rubberBounce: return "Rubber Bounce"
+        case .arcadeBlips: return "Arcade Blips"
+        case .terminalBeeps: return "Terminal Beeps"
+        case .radarPings: return "Radar Pings"
+        case .laserTicks: return "Laser Ticks"
         }
     }
 
@@ -397,6 +434,21 @@ enum SoundPreset: String, CaseIterable, Codable {
         case .topre: return "Soft electro-capacitive thock for quiet sessions"
         case .tealios: return "Smooth, low-pitched linear switch recordings"
         case .alpsBlue: return "Distinctive vintage Alps clicks and resonance"
+        case .mutedTypewriter: return "Designed · A soft, damped desk-machine tap"
+        case .ribbonTypewriter: return "Designed · Warm strikes with a short ribbon rattle"
+        case .electricTypewriter: return "Designed · A quick double-strike carriage mechanism"
+        case .deskTypewriter: return "Designed · A bright metal-case clatter"
+        case .feltPiano: return "Designed · Gentle, rounded piano-like notes"
+        case .marimba: return "Designed · Warm wooden-bar percussion"
+        case .pluckedStrings: return "Designed · Short, resonant string plucks"
+        case .glassBells: return "Designed · Airy, inharmonic glass tones"
+        case .waterDrops: return "Designed · Tiny, rising water-like plips"
+        case .woodBlocks: return "Designed · Dry, hollow wooden knocks"
+        case .rubberBounce: return "Designed · Springy descending boings"
+        case .arcadeBlips: return "Designed · Bright square-wave arcade chirps"
+        case .terminalBeeps: return "Designed · Short, clean terminal tones"
+        case .radarPings: return "Designed · Rounded pings with a soft echo"
+        case .laserTicks: return "Designed · Quick downward sci-fi sweeps"
         }
     }
 }
@@ -404,6 +456,7 @@ enum SoundPreset: String, CaseIterable, Codable {
 enum SoundCategory: String, CaseIterable, Codable {
     case popular
     case keyboards
+    case vintageKeyboards
     case typewriters
     case musical
     case fun
@@ -412,7 +465,8 @@ enum SoundCategory: String, CaseIterable, Codable {
     var title: String {
         switch self {
         case .popular: return "Most Popular"
-        case .keyboards: return "Keyboards"
+        case .keyboards: return "Mechanical Keyboards"
+        case .vintageKeyboards: return "Vintage Keyboards"
         case .typewriters: return "Typewriters"
         case .musical: return "Musical"
         case .fun: return "Fun"
@@ -424,6 +478,7 @@ enum SoundCategory: String, CaseIterable, Codable {
         switch self {
         case .popular: return "star.fill"
         case .keyboards: return "keyboard.fill"
+        case .vintageKeyboards: return "desktopcomputer"
         case .typewriters: return "textformat"
         case .musical: return "music.note.list"
         case .fun: return "party.popper.fill"
@@ -437,29 +492,32 @@ enum SoundCategory: String, CaseIterable, Codable {
             return [.typingCom, .typingClub, .classicTypewriter, .ibmModelM, .ibmModelF]
         case .keyboards:
             return [
-                .typingCom, .typingClub, .ibmModelM, .ibmModelF, .mxBlue,
+                .mxBlue,
                 .holyPanda, .mxBrown, .mxBlack, .alpaca, .gateronBlackInk,
-                .developerClick, .nkCream, .boxNavy, .topre, .tealios, .alpsBlue
+                .nkCream, .boxNavy, .topre, .tealios
             ]
+        case .vintageKeyboards: return [.ibmModelM, .ibmModelF, .alpsBlue]
         case .typewriters:
-            return [.classicTypewriter, .hardClack, .sharpStrike, .hermesTypewriter]
+            return [.classicTypewriter, .hardClack, .sharpStrike, .hermesTypewriter, .mutedTypewriter, .ribbonTypewriter, .electricTypewriter, .deskTypewriter]
         case .musical:
-            return [.musicBox, .chimes, .drumKit]
+            return [.musicBox, .chimes, .drumKit, .feltPiano, .marimba, .pluckedStrings, .glassBells]
         case .fun:
-            return [.bubblePop, .casinoChips, .duckQuacks]
+            return [.bubblePop, .casinoChips, .duckQuacks, .waterDrops, .woodBlocks, .rubberBounce]
         case .electronic:
-            return [.retroClicks, .electricSpark]
+            return [.retroClicks, .electricSpark, .developerClick, .arcadeBlips, .terminalBeeps, .radarPings, .laserTicks]
         }
     }
 
-    static let settingsSections: [(SoundCategory, [SoundPreset])] = [
-        (.popular, [.typingCom, .typingClub, .classicTypewriter, .ibmModelM, .ibmModelF]),
-        (.keyboards, [.mxBlue, .holyPanda, .mxBrown, .mxBlack, .alpaca, .gateronBlackInk, .developerClick, .nkCream, .boxNavy, .topre, .tealios, .alpsBlue]),
-        (.typewriters, [.hardClack, .sharpStrike, .hermesTypewriter]),
-        (.musical, [.musicBox, .chimes, .drumKit]),
-        (.fun, [.bubblePop, .casinoChips, .duckQuacks]),
-        (.electronic, [.retroClicks, .electricSpark])
-    ]
+    var menuSections: [(title: String, presets: [SoundPreset])] {
+        guard self == .keyboards else { return [("", presets)] }
+        return [
+            ("Soft & thocky", [.alpaca, .gateronBlackInk, .mxBlack, .nkCream, .topre, .tealios]),
+            ("Tactile & balanced", [.holyPanda, .mxBrown]),
+            ("Crisp & clicky", [.mxBlue, .boxNavy])
+        ]
+    }
+
+    static var settingsSections: [(SoundCategory, [SoundPreset])] { allCases.map { ($0, $0.presets) } }
 }
 
 enum MenuIconStyle: String, CaseIterable, Codable {
@@ -473,6 +531,10 @@ enum MenuIconStyle: String, CaseIterable, Codable {
     case music
     case drum
     case headphones, sparkles, moon, leaf, piano, circle, coffee
+    case speaker
+    // Keep legacy cases decodable while offering only typing and audio symbols.
+    static let selectableCases: [MenuIconStyle] = [.automatic, .typingCursor, .keyboard,
+        .commandSound, .typewriter, .waveform, .headphones, .speaker, .music]
 
     var title: String {
         switch self {
@@ -492,6 +554,7 @@ enum MenuIconStyle: String, CaseIterable, Codable {
         case .piano: return "Piano Keys"
         case .circle: return "Simple Circle"
         case .coffee: return "Coffee Cup"
+        case .speaker: return "Speaker"
         }
     }
 
@@ -511,6 +574,7 @@ enum MenuIconStyle: String, CaseIterable, Codable {
         case .piano: return "pianokeys"
         case .circle: return "circle.fill"
         case .coffee: return "cup.and.saucer.fill"
+        case .speaker: return "speaker.wave.2.fill"
         }
     }
 }

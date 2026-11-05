@@ -45,6 +45,156 @@ private final class SoundLibraryItem: NSObject {
     init(preset: SoundPreset) {
         title = preset.title; symbol = "waveform"; self.preset = preset; children = []
     }
+    static func categories() -> [SoundLibraryItem] {
+        [
+            SoundLibraryItem(title: "Mechanical keyboards", symbol: "keyboard", presets: SoundCategory.keyboards.presets),
+            SoundLibraryItem(title: "Vintage keyboards", symbol: "desktopcomputer", presets: SoundCategory.vintageKeyboards.presets),
+            SoundLibraryItem(title: "Typewriters", symbol: "textformat", presets: SoundCategory.typewriters.presets),
+            SoundLibraryItem(title: "Musical", symbol: "music.note", presets: SoundCategory.musical.presets),
+            SoundLibraryItem(title: "Playful", symbol: "sparkles", presets: SoundCategory.fun.presets),
+            SoundLibraryItem(title: "Electronic & retro", symbol: "bolt", presets: SoundCategory.electronic.presets),
+            SoundLibraryItem(title: "Online classics", symbol: "globe", presets: [.typingCom, .typingClub])
+        ].filter { !$0.children.isEmpty }
+    }
+}
+
+private final class SoundPickerPanel: NSPanel {
+    // Controls work without activating the app or redirecting typing from another app.
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+}
+
+final class FloatingSoundPickerController: NSWindowController {
+    private let preferences: Preferences
+    private let onChange: () -> Void
+    private let onPreview: (SoundPreset) -> Void
+    private let onSettings: () -> Void
+    private let categories = SoundLibraryItem.categories()
+    private let category = NSPopUpButton()
+    private let sound = NSPopUpButton()
+    private let detail = NSTextField(wrappingLabelWithString: "")
+    private let position = NSTextField(labelWithString: "")
+    private let volume = NSSlider(value: 45, minValue: 0, maxValue: 100, target: nil, action: nil)
+    private let volumeText = NSTextField(labelWithString: "45%")
+    private let enabled = NSButton(checkboxWithTitle: "Typing sounds enabled", target: nil, action: nil)
+    private let autoPreview = NSButton(checkboxWithTitle: "Preview when switching", target: nil, action: nil)
+    private var categoryIndex = 0
+    private var hasShown = false
+    private var sounds: [SoundPreset] {
+        categoryIndex == 0 ? SoundPreset.availableCases : categories[categoryIndex - 1].children.compactMap(\.preset)
+    }
+    init(preferences: Preferences = .shared, onChange: @escaping () -> Void = {},
+         onPreview: @escaping (SoundPreset) -> Void = { _ in }, onSettings: @escaping () -> Void = {}) {
+        self.preferences = preferences; self.onChange = onChange
+        self.onPreview = onPreview; self.onSettings = onSettings
+        let panel = SoundPickerPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 310),
+                                     styleMask: [.titled, .closable, .utilityWindow, .nonactivatingPanel],
+                                     backing: .buffered, defer: false)
+        panel.title = "Typing Sounds · Sound Picker"
+        panel.level = .floating; panel.hidesOnDeactivate = false
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.isReleasedWhenClosed = false
+        panel.isMovableByWindowBackground = true
+        panel.contentView = SettingsRootView(frame: NSRect(x: 0, y: 0, width: 360, height: 310))
+        if !CommandLine.arguments.contains("--floating-self-test") && !CommandLine.arguments.contains("--render-floating") {
+            panel.setFrameAutosaveName("TypingSoundsFloatingPicker")
+        }
+        super.init(window: panel)
+        let title = NSTextField(labelWithString: "Find your next favorite click")
+        title.font = .systemFont(ofSize: 16, weight: .semibold)
+        category.addItems(withTitles: ["All sounds"] + categories.map(\.title))
+        category.target = self; category.action = #selector(changeCategory)
+        category.setAccessibilityLabel("Sound category")
+        sound.target = self; sound.action = #selector(changeSound)
+        sound.setAccessibilityLabel("Selected sound")
+        detail.font = .systemFont(ofSize: 12); detail.textColor = .secondaryLabelColor
+        detail.maximumNumberOfLines = 2; detail.preferredMaxLayoutWidth = 320
+        detail.heightAnchor.constraint(equalToConstant: 32).isActive = true
+        let previous = control("◀", #selector(previousSound)); previous.identifier = NSUserInterfaceItemIdentifier("previousSound")
+        previous.setAccessibilityLabel("Previous sound")
+        let next = control("▶", #selector(nextSound)); next.identifier = NSUserInterfaceItemIdentifier("nextSound")
+        next.setAccessibilityLabel("Next sound")
+        let preview = control("Preview", #selector(previewSound)); preview.identifier = NSUserInterfaceItemIdentifier("previewSound")
+        position.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        position.textColor = .secondaryLabelColor
+        let transport = NSStackView(views: [previous, preview, next, NSView(), position])
+        transport.spacing = 8; transport.alignment = .centerY
+        autoPreview.state = .on
+        volume.target = self; volume.action = #selector(changeVolume); volume.isContinuous = true
+        volume.setAccessibilityLabel("Floating picker volume")
+        volumeText.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        volumeText.widthAnchor.constraint(equalToConstant: 36).isActive = true
+        let volumeRow = NSStackView(views: [NSTextField(labelWithString: "Volume"), volume, volumeText])
+        volumeRow.spacing = 10; volumeRow.alignment = .centerY
+        enabled.target = self; enabled.action = #selector(changeEnabled)
+        let footer = NSStackView(views: [enabled, NSView(), control("Settings…", #selector(openSettings))])
+        footer.alignment = .centerY; footer.spacing = 8
+        let stack = NSStackView(views: [title, category, sound, detail, transport, autoPreview, volumeRow, footer])
+        stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        panel.contentView!.addSubview(stack)
+        for view in [category, sound, detail, transport, volumeRow, footer] {
+            view.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
+        }
+        NSLayoutConstraint.activate([
+            stack.topAnchor.constraint(equalTo: panel.contentView!.topAnchor, constant: 18),
+            stack.leadingAnchor.constraint(equalTo: panel.contentView!.leadingAnchor, constant: 18),
+            stack.trailingAnchor.constraint(equalTo: panel.contentView!.trailingAnchor, constant: -18),
+            stack.bottomAnchor.constraint(equalTo: panel.contentView!.bottomAnchor, constant: -18)
+        ])
+        refresh()
+    }
+    required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+    private func control(_ title: String, _ action: Selector) -> NSButton {
+        let button = NSButton(title: title, target: self, action: action)
+        button.refusesFirstResponder = true
+        return button
+    }
+    func show() {
+        refresh()
+        if !hasShown {
+            if window?.frame.origin == .zero { window?.center() }
+            hasShown = true
+        }
+        window?.orderFrontRegardless()
+    }
+    func refresh() {
+        if !sounds.contains(preferences.preset) { categoryIndex = 0 }
+        category.selectItem(at: categoryIndex)
+        sound.removeAllItems(); sound.addItems(withTitles: sounds.map(\.title))
+        sound.selectItem(withTitle: preferences.preset.title)
+        detail.stringValue = preferences.preset.detail
+        position.stringValue = "\((sounds.firstIndex(of: preferences.preset) ?? 0) + 1) / \(sounds.count)"
+        volume.doubleValue = preferences.volume * 100
+        volumeText.stringValue = "\(Int(preferences.volume * 100))%"
+        enabled.state = preferences.enabled ? .on : .off
+    }
+    private func choose(_ preset: SoundPreset) {
+        preferences.preset = preset
+        onChange(); refresh()
+        if autoPreview.state == .on { onPreview(preset) }
+    }
+    private func step(_ offset: Int) {
+        let list = sounds
+        guard !list.isEmpty else { return }
+        let current = list.firstIndex(of: preferences.preset) ?? 0
+        choose(list[(current + offset + list.count) % list.count])
+    }
+    @objc private func previousSound() { step(-1) }
+    @objc private func nextSound() { step(1) }
+    @objc private func previewSound() { onPreview(preferences.preset) }
+    @objc private func changeSound() {
+        guard sounds.indices.contains(sound.indexOfSelectedItem) else { return }
+        choose(sounds[sound.indexOfSelectedItem])
+    }
+    @objc private func changeCategory() {
+        categoryIndex = max(0, category.indexOfSelectedItem)
+        if sounds.contains(preferences.preset) { refresh() }
+        else if let first = sounds.first { choose(first) }
+    }
+    @objc private func changeVolume() { preferences.volume = volume.doubleValue / 100; onChange(); refresh() }
+    @objc private func changeEnabled() { preferences.enabled = enabled.state == .on; onChange(); refresh() }
+    @objc private func openSettings() { onSettings() }
 }
 
 private final class SoundPreviewButton: NSButton {
@@ -108,6 +258,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     private let loginEnabled: () -> Bool
     private let statusText: () -> String
     private let onTestKey: (CGKeyCode, Bool, UInt64, KeyboardEventKind) -> Void
+    private let onShowPicker: () -> Void
     private let iconImage: (MenuIconStyle) -> NSImage?
     private let soundPopup = NSPopUpButton()
     private let soundSearch = NSSearchField()
@@ -116,15 +267,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     private let libraryCount = NSTextField(labelWithString: "")
     private var filteredSounds = SoundPreset.availableCases
     private var updatingLibrary = false
-    private let libraryRoots: [SoundLibraryItem] = [
-        SoundLibraryItem(title: "Mechanical keyboards", symbol: "keyboard", presets: [.mxBlue, .holyPanda, .mxBrown, .mxBlack, .alpaca, .gateronBlackInk, .nkCream, .boxNavy, .topre, .tealios]),
-        SoundLibraryItem(title: "Vintage keyboards", symbol: "desktopcomputer", presets: [.ibmModelM, .ibmModelF, .alpsBlue]),
-        SoundLibraryItem(title: "Typewriters", symbol: "textformat", presets: [.classicTypewriter, .hardClack, .sharpStrike, .hermesTypewriter]),
-        SoundLibraryItem(title: "Musical", symbol: "music.note", presets: [.musicBox, .chimes, .drumKit]),
-        SoundLibraryItem(title: "Playful", symbol: "sparkles", presets: [.bubblePop, .casinoChips, .duckQuacks]),
-        SoundLibraryItem(title: "Electronic & retro", symbol: "bolt", presets: [.developerClick, .retroClicks, .electricSpark]),
-        SoundLibraryItem(title: "Online classics", symbol: "globe", presets: [.typingCom, .typingClub])
-    ].filter { !$0.children.isEmpty }
+    private let libraryRoots = SoundLibraryItem.categories()
     private var visibleRoots: [SoundLibraryItem] = []
     private var expandedCategories: Set<String> = []
     private var libraryQuery = ""
@@ -161,11 +304,13 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
          onLogin: @escaping () -> Void = {}, loginEnabled: @escaping () -> Bool = { false },
          statusText: @escaping () -> String = { "" },
          onTestKey: @escaping (CGKeyCode, Bool, UInt64, KeyboardEventKind) -> Void = { _,_,_,_ in },
-         iconImage: @escaping (MenuIconStyle) -> NSImage? = { _ in nil }) {
+         iconImage: @escaping (MenuIconStyle) -> NSImage? = { _ in nil },
+         onShowPicker: @escaping () -> Void = {}) {
         self.preferences = preferences; self.onChange = onChange; self.onPreview = onPreview
         self.onPermission = onPermission; self.onLogin = onLogin; self.loginEnabled = loginEnabled
         self.statusText = statusText; self.onTestKey = onTestKey
         self.iconImage = iconImage
+        self.onShowPicker = onShowPicker
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 960, height: 800),
                               styleMask: [.titled, .closable, .miniaturizable, .resizable],
                               backing: .buffered, defer: false)
@@ -257,7 +402,10 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         mark.contentTintColor = .controlAccentColor
         mark.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 32, weight: .medium)
         mark.widthAnchor.constraint(equalToConstant: 48).isActive = true
-        let header = row([mark, heading])
+        let floatButton = button("Floating Picker…", #selector(showFloatingPicker))
+        floatButton.image = NSImage(systemSymbolName: "pip", accessibilityDescription: nil)
+        floatButton.imagePosition = .imageLeading
+        let header = row([mark, heading, NSView(), floatButton])
         header.translatesAutoresizingMaskIntoConstraints = false
         tabView.translatesAutoresizingMaskIntoConstraints = false
         tabView.tabViewType = .noTabsNoBorder
@@ -310,9 +458,12 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         soundSearch.setAccessibilityLabel("Search sound library")
         soundTable.identifier = NSUserInterfaceItemIdentifier("soundLibrary")
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier("sound")); column.width = 382
+        column.minWidth = 180; column.resizingMask = .autoresizingMask
         soundTable.addTableColumn(column); soundTable.outlineTableColumn = column; soundTable.headerView = nil
+        soundTable.columnAutoresizingStyle = .lastColumnOnlyAutoresizingStyle
+        soundTable.autoresizesOutlineColumn = false
         soundTable.indentationPerLevel = 14
-        soundTable.rowHeight = 57; soundTable.intercellSpacing = NSSize(width: 0, height: 2)
+        soundTable.rowHeight = 32; soundTable.intercellSpacing = NSSize(width: 0, height: 2)
         soundTable.style = .plain; soundTable.backgroundColor = .clear
         soundTable.delegate = self; soundTable.dataSource = self
         soundTable.setAccessibilityLabel("Sound library")
@@ -342,7 +493,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             card("The typing room", views: [keyboardPreview,
             label("Private by design · No text saved · Works here before Input Monitoring is enabled", secondary: true)])])
 
-        var keyViews: [NSView] = [customKeys, label("Keep the pack's defaults, mute individual keys, or mix in another sound. Extra modifier keys are quiet until customization is enabled.", secondary: true)]
+        var keyViews: [NSView] = [customKeys, label("Modifier keys use softer clicks from your selected pack by default. Enable customization to mute a key, change its level, or mix in another sound.", secondary: true)]
         let keyHeading = section("Key"), soundHeading = section("Sound"), levelHeading = section("Relative volume")
         keyHeading.widthAnchor.constraint(equalToConstant: 118).isActive = true
         soundHeading.widthAnchor.constraint(equalToConstant: 330).isActive = true
@@ -387,7 +538,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
             label("Only Input Monitoring is needed for system-wide sounds. No Accessibility, microphone, screen-recording or Full Disk Access permission is requested.", secondary: true)])
         ])
 
-        iconPopup.addItems(withTitles: MenuIconStyle.allCases.map(\.title))
+        iconPopup.addItems(withTitles: MenuIconStyle.selectableCases.map(\.title))
         iconPopup.target = self; iconPopup.action = #selector(changeIcon)
         iconPopup.widthAnchor.constraint(equalToConstant: 300).isActive = true
         iconPreview.frame = NSRect(x: 0, y: 0, width: 32, height: 32)
@@ -414,6 +565,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
 
     @objc private func selectPane(_ sender: NSButton) { tabView.selectTabViewItem(at: sender.tag) }
+    @objc private func showFloatingPicker() { onShowPicker() }
     func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
         for button in navigationButtons {
             button.state = button.tag == tabView.indexOfTabViewItem(tabViewItem!) ? .on : .off
@@ -495,7 +647,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     }
     @objc private func resetKeys() { preferences.keyMappings = [:]; changed() }
     @objc private func changeIcon() {
-        preferences.menuIconStyle = MenuIconStyle.allCases[iconPopup.indexOfSelectedItem]; changed()
+        preferences.menuIconStyle = MenuIconStyle.selectableCases[iconPopup.indexOfSelectedItem]; changed()
     }
     @objc private func changeProfile() {
         guard let id = profilePopup.selectedItem?.representedObject as? String else {
@@ -546,10 +698,30 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         }
     }
     private func reloadLibrary() {
+        let query = soundSearch.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        if displayedPreset != nil && query == libraryQuery {
+            // Focus, volume and power updates leave the browsing viewport intact.
+            guard displayedPreset != preferences.preset else { return }
+            updatingLibrary = true
+            if let parent = visibleRoots.first(where: { children(of: $0).contains { $0.preset == preferences.preset } }),
+               let item = children(of: parent).first(where: { $0.preset == preferences.preset }) {
+                if !soundTable.isItemExpanded(parent) { soundTable.expandItem(parent) }
+                let index = soundTable.row(forItem: item)
+                if index >= 0 {
+                    soundTable.selectRowIndexes(IndexSet(integer: index), byExtendingSelection: false)
+                    if !soundTable.visibleRect.contains(soundTable.rect(ofRow: index)) {
+                        soundTable.scrollRowToVisible(index)
+                    }
+                }
+            } else { soundTable.deselectAll(nil) }
+            displayedPreset = preferences.preset
+            updatingLibrary = false
+            return
+        }
         if libraryQuery.isEmpty && soundTable.numberOfRows > 0 {
             expandedCategories = Set(libraryRoots.filter { soundTable.isItemExpanded($0) }.map(\.title))
         }
-        libraryQuery = soundSearch.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        libraryQuery = query
         visibleRoots = libraryRoots.filter { !children(of: $0).isEmpty }
         filteredSounds = visibleRoots.flatMap { children(of: $0).compactMap(\.preset) }
         let selectionChanged = displayedPreset != preferences.preset
@@ -600,7 +772,7 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
         (item as? SoundLibraryItem)?.preset != nil
     }
     func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat {
-        (item as? SoundLibraryItem)?.preset == nil ? 28 : 57
+        (item as? SoundLibraryItem)?.preset == nil ? 26 : 32
     }
     func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
         SoundLibraryRow()
@@ -632,17 +804,18 @@ final class SettingsWindowController: NSWindowController, NSTableViewDataSource,
     private func soundCell(_ preset: SoundPreset) -> NSView {
             let shortTitle = preset.title.range(of: ": ").map { String(preset.title[$0.upperBound...]) } ?? preset.title
             let name = NSTextField(labelWithString: shortTitle)
-            name.font = .systemFont(ofSize: 13, weight: .semibold)
-            let detail = NSTextField(labelWithString: preset.detail)
-            detail.font = .systemFont(ofSize: 11); detail.textColor = .secondaryLabelColor
-            detail.lineBreakMode = .byTruncatingTail
-            let text = NSStackView(views: [name, detail]); text.orientation = .vertical
-            text.alignment = .leading; text.spacing = 3
+            name.font = .systemFont(ofSize: 12, weight: .semibold)
+            name.lineBreakMode = .byTruncatingTail
+            name.setAccessibilityLabel(preset.title + ". " + preset.detail)
+            let text = NSStackView(views: [name]); text.orientation = .vertical
+            text.alignment = .leading; text.spacing = 2
             let preview = SoundPreviewButton(title: "▶", target: self, action: #selector(previewLibrarySound(_:)))
             preview.representedPreset = preset
+            preview.controlSize = .small
             preview.bezelStyle = .recessed
             preview.setAccessibilityLabel("Preview " + preset.title)
-            let cell = NSView(); cell.addSubview(text); cell.addSubview(preview)
+            let cell = NSView(); cell.toolTip = preset.detail
+            cell.addSubview(text); cell.addSubview(preview)
             text.translatesAutoresizingMaskIntoConstraints = false; preview.translatesAutoresizingMaskIntoConstraints = false
             NSLayoutConstraint.activate([
                 text.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 8),

@@ -26,8 +26,19 @@ import CoreGraphics
         check(key(0, repeat: true) == nil, "held-key repeats default to quiet")
         config.includeRepeats = true
         check(key(0, repeat: true) != nil, "repeat opt-in")
-        check(modifier(56, 0x20002) == nil, "modifiers are silent by default")
+        let defaultShift = modifier(56, 0x20002)
+        check(defaultShift != nil && defaultShift!.volume < config.volume && defaultShift!.preset == config.preset,
+              "default modifier uses a softer click from the selected pack")
         _ = modifier(56, 0)
+        let rightShift = modifier(60, 0x20004)
+        check(rightShift?.keyCode == defaultShift?.keyCode, "left and right Shift share their default sound")
+        _ = modifier(60, 0)
+        for (code, flags): (CGKeyCode, UInt64) in [(59,0x40001),(62,0x42000),(58,0x80020),
+                                                   (61,0x80040),(55,0x100008),(54,0x100010),(63,0x800000)] {
+            let sound = modifier(code, flags)
+            check(sound != nil && sound!.volume < config.volume, "soft default modifier press \(code)")
+            check(modifier(code, 0) == nil, "default modifier release remains silent \(code)")
+        }
         config.specialKeysEnabled = true
         check(modifier(56, 0x20002) != nil, "left Shift press")
         check(modifier(56, 0x20002) == nil, "duplicate modifier suppressed")
@@ -59,7 +70,7 @@ import CoreGraphics
         check(key(36) == nil && key(76) == nil, "both Return and keypad Enter use the override")
         config.includeShortcuts = true
         check(key(0, 0x100000) != nil, "shortcut opt-in")
-        check(key(53) != nil && key(123) != nil && key(126) != nil, "Escape and arrows opt-in")
+        check(key(53) != nil && key(123) != nil && key(126) != nil, "Escape and arrows have default clicks")
         check(key(122) == nil, "unconfigured function/media keys stay quiet")
         config.enabled = false
         check(key(0) == nil, "disabled means no sound")
@@ -68,6 +79,20 @@ import CoreGraphics
         config.volume = .nan
         check(key(0) == nil, "non-finite gain cannot reach audio")
         check(config.sanitized().volume.isFinite, "configuration sanitizes bad gain")
+        let sections = SoundCategory.keyboards.menuSections
+        let grouped = sections.flatMap(\.presets)
+        check(sections.count == 3 && sections.allSatisfy { !$0.title.isEmpty }, "keyboard feel groups have headings")
+        check(Set(grouped) == Set(SoundCategory.keyboards.presets) && grouped.count == Set(grouped).count,
+              "keyboard feel groups cover every pack exactly once")
+        check(!SoundCategory.keyboards.presets.contains(.ibmModelM) && SoundCategory.vintageKeyboards.presets.contains(.ibmModelM),
+              "mechanical and vintage keyboards have separate menus")
+        for category: SoundCategory in [.typewriters, .musical, .fun, .electronic] {
+            check(category.presets.count >= 6, "expanded category \(category.title)")
+        }
+        check(SoundPreset.designedCases.count == 15 && Set(SoundPreset.designedCases.flatMap(\.designedResources)).count == 75,
+              "original designs have distinct resource names")
+        check(MenuIconStyle.selectableCases.contains(.typingCursor) && !MenuIconStyle.selectableCases.contains(.coffee),
+              "icon choices communicate typing or sound")
 
         let suite = "TypingSoundsTests." + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
@@ -104,6 +129,8 @@ import CoreGraphics
         defaults.set(-100, forKey: "volume")
         check(preferences.userProfiles.isEmpty && preferences.keyMappings.isEmpty && preferences.volume == 0,
               "corrupt persisted values are contained")
+        defaults.set(MenuIconStyle.leaf.rawValue, forKey: "menuIconStyle")
+        check(preferences.menuIconStyle == .automatic, "legacy decorative icons decode to a relevant default")
         print("PASS: \(count) routing, boundary and profile checks")
     }
 }
